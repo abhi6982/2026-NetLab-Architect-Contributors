@@ -96,7 +96,7 @@ Download `public/index.html` and open in any browser. That's it. **Zero dependen
 ### Option 2: Serve Locally
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/netlab-architect.git
+git clone https://github.com/abhi6982/2026-NetLab-Architect-Contributors.git
 cd netlab-architect
 
 # Serve with any static file server (pick one):
@@ -111,7 +111,7 @@ Then open http://localhost:8080.
 ### Option 3: Docker
 ```bash
 # Using docker-compose (recommended)
-git clone https://github.com/YOUR_USERNAME/netlab-architect.git
+git clone https://github.com/abhi6982/2026-NetLab-Architect-Contributors.git
 cd netlab-architect
 docker compose up -d
 

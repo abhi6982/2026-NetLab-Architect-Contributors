@@ -5,7 +5,7 @@ Thanks for your interest in contributing! This project is a single-file HTML app
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/netlab-architect.git`
+2. Clone your fork: `git clone https://github.com/abhi6982/2026-NetLab-Architect-Contributors.git`
 3. Open `public/index.html` directly in a browser, or serve it:
    ```bash
    python3 -m http.server 8080 -d public
