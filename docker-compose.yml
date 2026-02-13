@@ -1,0 +1,7 @@
+services:
+  netlab-architect:
+    build: .
+    container_name: netlab-architect
+    ports:
+      - "8080:80"
+    restart: unless-stopped

@@ -1,0 +1,2730 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetLab Architect — Homelab Network Diagram Builder</title>
+<meta name="description" content="Free, open-source homelab network diagram builder. Drag-and-drop network topology tool with IP calculator, CIDR subnetting, PDF export, and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================
+   NETLAB ARCHITECT v2.0
+   Production-grade Homelab Network Diagram Tool
+   ============================================ */
+
+/* === CSS VARIABLES / THEMING === */
+:root {
+  --sidebar-w: 260px;
+  --panel-w: 300px;
+  --topbar-h: 44px;
+  --toolbar-h: 36px;
+  --radius: 8px;
+  --radius-sm: 5px;
+  --transition: 0.2s ease;
+}
+
+[data-theme="dark"] {
+  --bg-0: #06080c;
+  --bg-1: #0c1017;
+  --bg-2: #111820;
+  --bg-3: #182030;
+  --surface: #1a2332;
+  --surface-hover: #1e2a3a;
+  --border: #1c2736;
+  --border-hover: #2a3d55;
+  --text: #b8c8d8;
+  --text-dim: #556677;
+  --text-bright: #e4edf6;
+  --text-inv: #0c1017;
+  --accent: #00d4ff;
+  --accent-dim: rgba(0,212,255,0.12);
+  --accent2: #00e676;
+  --accent2-dim: rgba(0,230,118,0.1);
+  --warn: #ff9100;
+  --warn-dim: rgba(255,145,0,0.1);
+  --danger: #ff4757;
+  --danger-dim: rgba(255,71,87,0.1);
+  --purple: #a78bfa;
+  --purple-dim: rgba(167,139,250,0.1);
+  --blue: #60a5fa;
+  --blue-dim: rgba(96,165,250,0.1);
+  --yellow: #fbbf24;
+  --yellow-dim: rgba(251,191,36,0.1);
+  --pink: #f472b6;
+  --grid-dot: rgba(255,255,255,0.035);
+  --shadow: 0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,0.6);
+  --conn-color: rgba(0,212,255,0.45);
+  --minimap-bg: rgba(12,16,23,0.92);
+}
+
+[data-theme="light"] {
+  --bg-0: #f0f2f5;
+  --bg-1: #f8f9fb;
+  --bg-2: #ffffff;
+  --bg-3: #eef1f5;
+  --surface: #ffffff;
+  --surface-hover: #f5f7fa;
+  --border: #dde2ea;
+  --border-hover: #c4ccd8;
+  --text: #4a5568;
+  --text-dim: #a0aec0;
+  --text-bright: #1a202c;
+  --text-inv: #ffffff;
+  --accent: #0891b2;
+  --accent-dim: rgba(8,145,178,0.08);
+  --accent2: #059669;
+  --accent2-dim: rgba(5,150,105,0.08);
+  --warn: #d97706;
+  --warn-dim: rgba(217,119,6,0.08);
+  --danger: #dc2626;
+  --danger-dim: rgba(220,38,38,0.08);
+  --purple: #7c3aed;
+  --purple-dim: rgba(124,58,237,0.08);
+  --blue: #2563eb;
+  --blue-dim: rgba(37,99,235,0.08);
+  --yellow: #ca8a04;
+  --yellow-dim: rgba(202,138,4,0.08);
+  --pink: #db2777;
+  --grid-dot: rgba(0,0,0,0.06);
+  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --conn-color: rgba(8,145,178,0.5);
+  --minimap-bg: rgba(255,255,255,0.95);
+}
+
+/* === RESET === */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg-0); color: var(--text); overflow: hidden; height: 100vh; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* === TOP BAR === */
+.topbar {
+  height: var(--topbar-h);
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  position: relative;
+  z-index: 200;
+  gap: 12px;
+}
+.topbar-left, .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.topbar-brand { display: flex; align-items: center; gap: 8px; cursor: default; }
+.topbar-icon {
+  width: 26px; height: 26px;
+  background: linear-gradient(135deg, var(--accent), var(--blue));
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+}
+.topbar-icon svg { width: 16px; height: 16px; fill: white; }
+.topbar-title { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 13px; color: var(--text-bright); letter-spacing: -0.3px; }
+.topbar-title em { font-style: normal; color: var(--accent); }
+.topbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+.topbar-view-tabs { display: flex; gap: 2px; background: var(--bg-3); border-radius: 6px; padding: 2px; }
+.view-tab {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+  padding: 4px 10px; border-radius: 4px; border: none;
+  background: transparent; color: var(--text-dim); cursor: pointer;
+  transition: var(--transition); letter-spacing: 0.3px;
+}
+.view-tab:hover { color: var(--text); }
+.view-tab.active { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+
+/* Buttons */
+.btn {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+  padding: 5px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  transition: var(--transition); letter-spacing: 0.2px;
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.btn:hover { border-color: var(--border-hover); color: var(--text-bright); }
+.btn-accent { border-color: var(--accent); color: var(--accent); }
+.btn-accent:hover { background: var(--accent-dim); }
+.btn-danger { border-color: var(--danger); color: var(--danger); }
+.btn-danger:hover { background: var(--danger-dim); }
+.btn-icon { padding: 5px 6px; }
+.btn svg { width: 12px; height: 12px; fill: currentColor; }
+
+/* === LAYOUT === */
+.main-layout { display: flex; height: calc(100vh - var(--topbar-h)); }
+
+/* === SIDEBAR === */
+.sidebar {
+  width: var(--sidebar-w); background: var(--bg-1); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; z-index: 100;
+}
+.sidebar-search {
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+}
+.search-input {
+  width: 100%; padding: 6px 8px 6px 28px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-2); color: var(--text-bright);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; outline: none;
+  transition: var(--transition); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23556677' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: 8px center;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-dim); }
+
+.sidebar-content { flex: 1; overflow-y: auto; padding-bottom: 12px; }
+.sidebar-section { padding: 10px 10px 4px; }
+.section-title {
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-dim);
+  margin-bottom: 6px; padding-left: 2px;
+  display: flex; align-items: center; gap: 6px;
+}
+.section-title .dot { width: 5px; height: 5px; border-radius: 50%; }
+.comp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.comp-item {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 8px 4px 6px; cursor: grab; transition: var(--transition);
+  text-align: center; user-select: none; position: relative;
+}
+.comp-item:hover { border-color: var(--border-hover); background: var(--surface-hover); transform: translateY(-1px); }
+.comp-item:active { cursor: grabbing; transform: scale(0.95); }
+.comp-item[data-hidden="true"] { display: none; }
+.comp-item .ico { width: 30px; height: 30px; margin: 0 auto 3px; display: flex; align-items: center; justify-content: center; }
+.comp-item .ico svg { width: 24px; height: 24px; }
+.comp-item .lbl {
+  font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; font-weight: 500;
+  color: var(--text-dim); letter-spacing: 0.2px; line-height: 1.2;
+}
+
+/* === CANVAS AREA === */
+.canvas-area {
+  flex: 1; position: relative; overflow: hidden; background: var(--bg-0);
+  cursor: default;
+}
+.canvas-area.panning { cursor: grabbing; }
+.canvas-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* The infinite canvas layer */
+.canvas-world {
+  position: absolute; top: 0; left: 0;
+  transform-origin: 0 0; will-change: transform;
+}
+
+/* SVG layer for connections */
+.conn-svg {
+  position: absolute; top: 0; left: 0;
+  width: 20000px; height: 20000px;
+  pointer-events: none; z-index: 1;
+}
+.conn-svg path {
+  fill: none; stroke: var(--conn-color); stroke-width: 2; stroke-linecap: round;
+  pointer-events: auto; cursor: pointer; transition: stroke 0.15s, stroke-width 0.15s;
+}
+.conn-svg path:hover { stroke: var(--accent); stroke-width: 3; }
+.conn-svg path.fiber { stroke-dasharray: 8 4; }
+.conn-svg path.wireless { stroke-dasharray: 3 5; opacity: 0.6; }
+.conn-svg text {
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  fill: var(--text-dim); pointer-events: none;
+}
+.conn-svg .conn-temp { stroke: var(--accent); opacity: 0.4; stroke-dasharray: 6 4; stroke-width: 2; fill: none; }
+
+/* === NODES === */
+.node {
+  position: absolute; min-width: 130px; max-width: 200px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); cursor: move; z-index: 10;
+  transition: box-shadow var(--transition); user-select: none;
+}
+.node:hover { z-index: 20; box-shadow: var(--shadow); }
+.node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow-lg);
+  z-index: 30;
+}
+.node.multi-selected {
+  border-color: var(--purple);
+  box-shadow: 0 0 0 2px var(--purple-dim);
+}
+.node-head {
+  padding: 7px 9px 5px; display: flex; align-items: center; gap: 7px;
+  border-bottom: 1px solid var(--border);
+}
+.node-ico { width: 22px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.node-ico svg { width: 18px; height: 18px; }
+.node-name {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600;
+  color: var(--text-bright); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; flex: 1; line-height: 1.2;
+}
+.node-status {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent2); box-shadow: 0 0 5px var(--accent2);
+}
+.node-status.offline { background: var(--danger); box-shadow: 0 0 5px var(--danger); }
+.node-status.warning { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
+
+.node-body { padding: 5px 9px 7px; }
+.node-field {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; line-height: 1.7;
+}
+.node-field .k { color: var(--text-dim); }
+.node-field .v { color: var(--accent); font-weight: 500; max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Category accent bars */
+.node[data-cat="network"] .node-head { border-bottom-color: var(--accent); }
+.node[data-cat="compute"] .node-head { border-bottom-color: var(--accent2); }
+.node[data-cat="storage"] .node-head { border-bottom-color: var(--warn); }
+.node[data-cat="service"] .node-head { border-bottom-color: var(--purple); }
+.node[data-cat="endpoint"] .node-head { border-bottom-color: var(--blue); }
+.node[data-cat="infra"] .node-head { border-bottom-color: var(--yellow); }
+
+/* Ports */
+.port {
+  position: absolute; width: 10px; height: 10px;
+  background: var(--bg-1); border: 2px solid var(--accent);
+  border-radius: 50%; cursor: crosshair; z-index: 40;
+  transition: all 0.12s;
+}
+.port:hover { background: var(--accent); transform: scale(1.4); }
+.port.pt { top: -5px; left: 50%; margin-left: -5px; }
+.port.pb { bottom: -5px; left: 50%; margin-left: -5px; }
+.port.pl { left: -5px; top: 50%; margin-top: -5px; }
+.port.pr { right: -5px; top: 50%; margin-top: -5px; }
+
+.node[data-cat="compute"] .port { border-color: var(--accent2); }
+.node[data-cat="storage"] .port { border-color: var(--warn); }
+.node[data-cat="service"] .port { border-color: var(--purple); }
+.node[data-cat="endpoint"] .port { border-color: var(--blue); }
+.node[data-cat="infra"] .port { border-color: var(--yellow); }
+
+/* === PROPERTIES PANEL === */
+.panel {
+  width: 0; background: var(--bg-1); border-left: 1px solid var(--border);
+  overflow: hidden; flex-shrink: 0; transition: width 0.2s ease;
+  display: flex; flex-direction: column;
+}
+.panel.open { width: var(--panel-w); }
+.panel-head {
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.panel-title { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text-bright); }
+.panel-close {
+  width: 22px; height: 22px; border-radius: 4px; border: none;
+  background: var(--bg-3); color: var(--text-dim); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 13px;
+  transition: var(--transition);
+}
+.panel-close:hover { color: var(--danger); background: var(--danger-dim); }
+.panel-body { flex: 1; overflow-y: auto; padding: 12px; }
+.fld { margin-bottom: 10px; }
+.fld-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 3px;
+}
+.fld-input, .fld-select {
+  width: 100%; padding: 6px 8px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-2); color: var(--text-bright);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; outline: none;
+  transition: var(--transition);
+}
+.fld-input:focus, .fld-select:focus { border-color: var(--accent); }
+.fld-input::placeholder { color: var(--text-dim); }
+.fld-select { cursor: pointer; appearance: none; }
+.fld-row { display: flex; gap: 6px; }
+.fld-row .fld { flex: 1; }
+textarea.fld-input { resize: vertical; min-height: 50px; }
+.panel-divider { height: 1px; background: var(--border); margin: 12px 0; }
+.btn-full { width: 100%; justify-content: center; padding: 7px; }
+
+/* === MINIMAP === */
+.minimap {
+  position: absolute; bottom: 12px; left: 12px;
+  width: 160px; height: 110px;
+  background: var(--minimap-bg); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; z-index: 50;
+  backdrop-filter: blur(8px);
+}
+.minimap canvas { width: 100%; height: 100%; }
+.minimap-viewport {
+  position: absolute; border: 1.5px solid var(--accent);
+  background: var(--accent-dim); border-radius: 2px; pointer-events: none;
+}
+
+/* === TOOLBAR (under canvas) === */
+.canvas-toolbar {
+  position: absolute; bottom: 12px; right: 12px;
+  display: flex; gap: 3px; z-index: 50;
+  background: var(--bg-1); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 3px;
+}
+.tb-btn {
+  width: 30px; height: 30px; border-radius: var(--radius-sm);
+  border: none; background: transparent; color: var(--text);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: var(--transition);
+}
+.tb-btn:hover { background: var(--bg-3); color: var(--accent); }
+.tb-btn svg { width: 14px; height: 14px; fill: currentColor; }
+.tb-sep { width: 1px; background: var(--border); margin: 4px 1px; }
+.tb-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  color: var(--text-dim); padding: 0 6px; display: flex; align-items: center;
+  min-width: 36px; justify-content: center;
+}
+
+/* === CONTEXT MENU === */
+.ctx-menu {
+  position: fixed; background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 4px; z-index: 500;
+  box-shadow: var(--shadow-lg); min-width: 180px; display: none;
+}
+.ctx-menu.open { display: block; }
+.ctx-item {
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  color: var(--text); cursor: pointer; display: flex; align-items: center;
+  gap: 8px; transition: var(--transition);
+}
+.ctx-item:hover { background: var(--bg-3); color: var(--text-bright); }
+.ctx-item.danger:hover { background: var(--danger-dim); color: var(--danger); }
+.ctx-sep { height: 1px; background: var(--border); margin: 3px 0; }
+.ctx-item .shortcut { margin-left: auto; font-size: 9px; color: var(--text-dim); }
+
+/* === MODAL (for IP Calculator etc) === */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 400; display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(3px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; min-width: 420px; max-width: 500px;
+  box-shadow: var(--shadow-lg);
+}
+.modal-title {
+  font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 700;
+  color: var(--text-bright); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.modal-close { margin-left: auto; cursor: pointer; color: var(--text-dim); font-size: 18px; }
+.modal-close:hover { color: var(--danger); }
+
+/* IP Calculator specific */
+.ip-result {
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px; margin-top: 10px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+}
+.ip-row { display: flex; justify-content: space-between; padding: 3px 0; }
+.ip-row .iplabel { color: var(--text-dim); }
+.ip-row .ipval { color: var(--accent); font-weight: 600; }
+
+/* === TOAST === */
+.toast-container { position: fixed; top: 56px; right: 16px; z-index: 600; display: flex; flex-direction: column; gap: 6px; }
+.toast {
+  padding: 8px 14px; border-radius: var(--radius);
+  background: var(--surface); border: 1px solid var(--border);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-bright);
+  box-shadow: var(--shadow); animation: toastIn 0.2s ease;
+  display: flex; align-items: center; gap: 6px;
+}
+.toast.success { border-color: var(--accent2); }
+.toast.error { border-color: var(--danger); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* === THEME TOGGLE === */
+.theme-toggle {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-dim);
+  padding: 5px 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.theme-toggle:hover {
+  background: var(--accent);
+  color: var(--text-inv) !important;
+  box-shadow: 0 0 12px var(--accent-dim);
+}
+
+/* === DEVICE SELECTOR MODAL === */
+.device-selector-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 450; display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.device-selector-overlay.open { display: flex; }
+.device-selector {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 0; width: 700px; max-width: 90vw;
+  max-height: 80vh; display: flex; flex-direction: column;
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.ds-header {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ds-title {
+  font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+  font-weight: 700; color: var(--text-bright);
+  display: flex; align-items: center; gap: 8px;
+}
+.ds-close { cursor: pointer; color: var(--text-dim); font-size: 18px; }
+.ds-close:hover { color: var(--danger); }
+.ds-toolbar {
+  padding: 10px 20px; border-bottom: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+.ds-search {
+  flex: 1; min-width: 160px; padding: 6px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg-3); color: var(--text-bright);
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; outline: none;
+}
+.ds-search:focus { border-color: var(--accent); }
+.ds-filter {
+  padding: 4px 10px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--bg-3); color: var(--text); cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  transition: var(--transition);
+}
+.ds-filter:hover, .ds-filter.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.ds-grid {
+  flex: 1; overflow-y: auto; padding: 16px 20px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+  gap: 10px; align-content: start;
+}
+.ds-card {
+  background: var(--bg-3); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 10px; cursor: pointer;
+  transition: var(--transition);
+}
+.ds-card:hover { border-color: var(--accent); background: var(--surface-hover); transform: translateY(-2px); box-shadow: var(--shadow); }
+.ds-card-brand {
+  font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 2px;
+}
+.ds-card-model {
+  font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700;
+  color: var(--text-bright); margin-bottom: 6px; line-height: 1.3;
+}
+.ds-card-preview {
+  height: 36px; margin-bottom: 6px; display: flex; align-items: center;
+}
+.ds-card-preview svg { width: 100%; height: 100%; }
+.ds-card-specs {
+  font-family: 'IBM Plex Mono', monospace; font-size: 8.5px;
+  color: var(--text-dim); line-height: 1.5;
+}
+.ds-card-specs span { color: var(--accent); font-weight: 500; }
+.ds-footer {
+  padding: 12px 20px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ds-footer-info { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); }
+
+/* === FRONT PANEL === */
+.front-panel-wrap {
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px; margin-bottom: 12px;
+  overflow-x: auto;
+}
+.front-panel-wrap.panel-full { padding: 10px; }
+.front-panel-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.fp-svg { display: block; }
+.fp-svg .fp-chassis { fill: var(--bg-2); stroke: var(--border); stroke-width: 1.5; rx: 4; }
+.fp-svg .fp-port { cursor: pointer; transition: opacity 0.12s, stroke-width 0.12s; }
+.fp-svg .fp-port:hover { opacity: 0.85; stroke-width: 2; }
+.fp-svg .fp-port.fp-port-selected { stroke: var(--accent) !important; stroke-width: 2.5; }
+.fp-svg .fp-port-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 5px; fill: var(--text-dim);
+  pointer-events: none; text-anchor: middle;
+}
+.fp-svg .fp-group-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 5.5px; fill: var(--text-dim);
+  font-weight: 600; text-anchor: middle;
+}
+.fp-svg .fp-led { pointer-events: none; }
+
+/* === PORT CONFIG PANEL === */
+.port-config {
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px; margin-top: 8px;
+  animation: slideDown 0.15s ease;
+}
+@keyframes slideDown { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.port-config-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.port-config-title {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700;
+  color: var(--accent);
+}
+.port-config-close {
+  width: 18px; height: 18px; border-radius: 3px; border: none;
+  background: var(--bg-2); color: var(--text-dim); cursor: pointer;
+  font-size: 11px; display: flex; align-items: center; justify-content: center;
+}
+.port-config-close:hover { color: var(--danger); }
+.pc-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.pc-row .fld { flex: 1; margin-bottom: 0; }
+.pc-toggle {
+  display: flex; align-items: center; gap: 6px; padding: 4px 0;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text);
+}
+.pc-toggle input[type="checkbox"] { accent-color: var(--accent); }
+
+/* === PORT ASSIGNMENT DIALOG === */
+.port-assign-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  z-index: 460; display: none; align-items: center; justify-content: center;
+  backdrop-filter: blur(3px);
+}
+.port-assign-overlay.open { display: flex; }
+.port-assign {
+  background: var(--bg-2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; min-width: 480px; max-width: 600px;
+  box-shadow: var(--shadow-lg);
+}
+.pa-title {
+  font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700;
+  color: var(--text-bright); margin-bottom: 14px; display: flex;
+  align-items: center; gap: 8px;
+}
+.pa-close { margin-left: auto; cursor: pointer; color: var(--text-dim); font-size: 18px; }
+.pa-close:hover { color: var(--danger); }
+.pa-side {
+  margin-bottom: 12px;
+}
+.pa-side-label {
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.pa-port-grid {
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.pa-port-btn {
+  padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: var(--bg-3); color: var(--text); cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  transition: var(--transition);
+}
+.pa-port-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pa-port-btn.occupied { opacity: 0.4; cursor: not-allowed; }
+.pa-port-btn.selected { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); font-weight: 700; }
+.pa-actions { display: flex; gap: 8px; margin-top: 14px; justify-content: flex-end; }
+
+/* === NODE FRONT PANEL THUMBNAIL === */
+.node-fp-thumb {
+  padding: 4px 6px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-2); border-radius: 0 0 var(--radius) var(--radius);
+}
+.node-fp-thumb svg { display: block; }
+.node.has-device-model { min-width: 170px; }
+
+/* === RESPONSIVE === */
+@media (max-width: 900px) {
+  .sidebar { width: 200px; }
+  .comp-grid { grid-template-columns: 1fr; }
+  .device-selector { width: 95vw; }
+  .ds-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-brand">
+      <div class="topbar-icon"><svg viewBox="0 0 24 24"><path d="M20 14H4V10H20V14ZM3 10C2.45 10 2 10.45 2 11V13C2 13.55 2.45 14 3 14H4V10H3ZM21 10H20V14H21C21.55 14 22 13.55 22 13V11C22 10.45 21.55 10 21 10ZM12 2L6 6V8H18V6L12 2ZM12 18C10.9 18 10 18.9 10 20H14C14 18.9 13.1 18 12 18ZM8 16H16V18H8V16Z" fill="white"/></svg></div>
+      <div class="topbar-title"><em>NetLab</em> Architect</div>
+    </div>
+    <div class="topbar-sep"></div>
+    <div class="topbar-view-tabs">
+      <button class="view-tab active" data-view="physical" onclick="switchView('physical')">Physical</button>
+      <button class="view-tab" data-view="logical" onclick="switchView('logical')">Logical</button>
+      <button class="view-tab" data-view="ipmap" onclick="switchView('ipmap')">IP Map</button>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn" onclick="openIPCalc()" title="IP/CIDR Calculator">🧮 IP Calc</button>
+    <button class="btn" onclick="autoLayout()" title="Auto-arrange nodes">📐 Auto Layout</button>
+    <button class="btn" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
+    <button class="btn" onclick="redo()" title="Redo (Ctrl+Y)">↪ Redo</button>
+    <div class="topbar-sep"></div>
+    <button class="btn" onclick="exportPNG()" title="Export as PNG">🖼 PNG</button>
+    <button class="btn" onclick="exportPDF()" title="Export as PDF">📄 PDF</button>
+    <button class="btn btn-accent" onclick="exportJSON()">💾 Save</button>
+    <button class="btn" onclick="importJSON()">📂 Load</button>
+    <div class="topbar-sep"></div>
+    <button class="btn theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark" id="themeBtn">🌙 Theme</button>
+  </div>
+</header>
+
+<!-- MAIN LAYOUT -->
+<div class="main-layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-search">
+      <input class="search-input" type="text" placeholder="Search components..." oninput="filterComponents(this.value)">
+    </div>
+    <div class="sidebar-content" id="sidebarContent"></div>
+  </aside>
+
+  <!-- CANVAS -->
+  <main class="canvas-area" id="canvasArea">
+    <div class="canvas-grid" id="canvasGrid"></div>
+    <div class="canvas-world" id="canvasWorld">
+      <svg class="conn-svg" id="connSvg" width="20000" height="20000"></svg>
+    </div>
+
+    <!-- Minimap -->
+    <div class="minimap" id="minimap">
+      <canvas id="minimapCanvas" width="160" height="110"></canvas>
+      <div class="minimap-viewport" id="minimapVP"></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="canvas-toolbar">
+      <button class="tb-btn" onclick="zoomIn()" title="Zoom In"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button>
+      <span class="tb-label" id="zoomLabel">100%</span>
+      <button class="tb-btn" onclick="zoomOut()" title="Zoom Out"><svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14v2z"/></svg></button>
+      <div class="tb-sep"></div>
+      <button class="tb-btn" onclick="zoomFit()" title="Fit All"><svg viewBox="0 0 24 24"><path d="M3 5v4h2V5h4V3H5c-1.1 0-2 .9-2 2zm2 10H3v4c0 1.1.9 2 2 2h4v-2H5v-4zm14 4h-4v2h4c1.1 0 2-.9 2-2v-4h-2v4zm0-16h-4v2h4v4h2V5c0-1.1-.9-2-2-2z"/></svg></button>
+      <button class="tb-btn" onclick="zoomReset()" title="Reset Zoom"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg></button>
+    </div>
+  </main>
+
+  <!-- PROPERTIES PANEL -->
+  <aside class="panel" id="propsPanel">
+    <div class="panel-head">
+      <span class="panel-title" id="panelTitle">Properties</span>
+      <button class="panel-close" onclick="closePanel()">✕</button>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </aside>
+</div>
+
+<!-- CONTEXT MENU -->
+<div class="ctx-menu" id="ctxMenu">
+  <div class="ctx-item" onclick="ctxAction('duplicate')">📋 Duplicate<span class="shortcut">Ctrl+D</span></div>
+  <div class="ctx-item" onclick="ctxAction('copy')">📄 Copy<span class="shortcut">Ctrl+C</span></div>
+  <div class="ctx-item" onclick="ctxAction('paste')">📋 Paste<span class="shortcut">Ctrl+V</span></div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item" onclick="ctxAction('bringfront')">⬆ Bring to Front</div>
+  <div class="ctx-item" onclick="ctxAction('sendback')">⬇ Send to Back</div>
+  <div class="ctx-sep"></div>
+  <div class="ctx-item danger" onclick="ctxAction('delete')">🗑 Delete<span class="shortcut">Del</span></div>
+</div>
+
+<!-- IP CALCULATOR MODAL -->
+<div class="modal-overlay" id="ipCalcModal">
+  <div class="modal">
+    <div class="modal-title">
+      🧮 IP Subnet / CIDR Calculator
+      <span class="modal-close" onclick="closeIPCalc()">✕</span>
+    </div>
+    <div class="fld">
+      <div class="fld-label">IP Address</div>
+      <input class="fld-input" id="ipCalcAddr" placeholder="192.168.1.0" value="192.168.1.0" oninput="calcSubnet()">
+    </div>
+    <div class="fld-row">
+      <div class="fld">
+        <div class="fld-label">CIDR Prefix</div>
+        <input class="fld-input" id="ipCalcCIDR" type="number" min="0" max="32" value="24" oninput="calcSubnet()">
+      </div>
+      <div class="fld">
+        <div class="fld-label">Subnet Mask</div>
+        <input class="fld-input" id="ipCalcMask" value="255.255.255.0" readonly>
+      </div>
+    </div>
+    <div class="ip-result" id="ipCalcResult">
+      <div class="ip-row"><span class="iplabel">Network Address</span><span class="ipval" id="iprNet">—</span></div>
+      <div class="ip-row"><span class="iplabel">Broadcast</span><span class="ipval" id="iprBcast">—</span></div>
+      <div class="ip-row"><span class="iplabel">First Host</span><span class="ipval" id="iprFirst">—</span></div>
+      <div class="ip-row"><span class="iplabel">Last Host</span><span class="ipval" id="iprLast">—</span></div>
+      <div class="ip-row"><span class="iplabel">Usable Hosts</span><span class="ipval" id="iprHosts">—</span></div>
+      <div class="ip-row"><span class="iplabel">Wildcard Mask</span><span class="ipval" id="iprWild">—</span></div>
+      <div class="ip-row"><span class="iplabel">IP Class</span><span class="ipval" id="iprClass">—</span></div>
+      <div class="ip-row"><span class="iplabel">Binary Mask</span><span class="ipval" id="iprBin" style="font-size:8px">—</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- DEVICE SELECTOR MODAL -->
+<div class="device-selector-overlay" id="deviceSelectorOverlay">
+  <div class="device-selector">
+    <div class="ds-header">
+      <div class="ds-title">📦 Select Device Model</div>
+      <span class="ds-close" onclick="closeDeviceSelector()">&times;</span>
+    </div>
+    <div class="ds-toolbar">
+      <input class="ds-search" id="dsSearch" placeholder="Search devices..." oninput="filterDeviceSelector()">
+      <div id="dsFilters"></div>
+    </div>
+    <div class="ds-grid" id="dsGrid"></div>
+    <div class="ds-footer">
+      <span class="ds-footer-info" id="dsInfo"></span>
+      <button class="btn" onclick="selectGenericDevice()">Use Generic Device</button>
+    </div>
+  </div>
+</div>
+
+<!-- PORT ASSIGNMENT DIALOG -->
+<div class="port-assign-overlay" id="portAssignOverlay">
+  <div class="port-assign">
+    <div class="pa-title">
+      🔌 Assign Physical Ports
+      <span class="pa-close" onclick="closePortAssign()">&times;</span>
+    </div>
+    <div id="paBody"></div>
+    <div class="pa-actions">
+      <button class="btn" onclick="closePortAssign()">Skip</button>
+      <button class="btn btn-accent" onclick="confirmPortAssign()">Assign Ports</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- HIDDEN FILE INPUT -->
+<input type="file" id="fileImport" accept=".json,.netlab" style="display:none" onchange="handleImport(event)">
+
+<script>
+// ============================================
+// NETLAB ARCHITECT v2.0 — ENGINE
+// ============================================
+
+// === SVG DEVICE ICONS (inline SVG for crisp rendering) ===
+const ICONS = {
+  // Network
+  modem: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="12" width="32" height="24" rx="3"/><line x1="24" y1="4" x2="24" y2="12"/><circle cx="24" cy="4" r="2"/><circle cx="16" cy="26" r="1.5" fill="currentColor"/><circle cx="22" cy="26" r="1.5" fill="currentColor"/><circle cx="28" cy="26" r="1.5" fill="currentColor"/><line x1="14" y1="32" x2="18" y2="32"/><line x1="22" y1="32" x2="26" y2="32"/><line x1="30" y1="32" x2="34" y2="32"/></svg>`,
+  router: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="24" cy="24" r="14"/><circle cx="24" cy="24" r="4" fill="currentColor"/><line x1="24" y1="6" x2="24" y2="10"/><line x1="24" y1="38" x2="24" y2="42"/><line x1="6" y1="24" x2="10" y2="24"/><line x1="38" y1="24" x2="42" y2="24"/></svg>`,
+  firewall: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="8" width="36" height="32" rx="3"/><line x1="6" y1="18" x2="42" y2="18"/><line x1="6" y1="28" x2="42" y2="28"/><rect x="12" y="12" width="6" height="3" rx="1" fill="currentColor"/><rect x="22" y="22" width="6" height="3" rx="1" fill="currentColor"/><rect x="30" y="32" width="6" height="3" rx="1" fill="currentColor"/></svg>`,
+  switch_net: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="16" width="40" height="16" rx="3"/><circle cx="12" cy="24" r="2" fill="currentColor"/><circle cx="20" cy="24" r="2" fill="currentColor"/><circle cx="28" cy="24" r="2" fill="currentColor"/><circle cx="36" cy="24" r="2" fill="currentColor"/><line x1="12" y1="28" x2="12" y2="32"/><line x1="20" y1="28" x2="20" y2="32"/><line x1="28" y1="28" x2="28" y2="32"/><line x1="36" y1="28" x2="36" y2="32"/></svg>`,
+  access_point: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="24" cy="30" r="3"/><path d="M16 24c2.2-3 5-5 8-5s5.8 2 8 5"/><path d="M10 18c4-5 8.5-8 14-8s10 3 14 8"/><line x1="24" y1="33" x2="24" y2="42"/><line x1="18" y1="42" x2="30" y2="42"/></svg>`,
+  vlan: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="8" width="32" height="32" rx="3" stroke-dasharray="5 3"/><text x="24" y="28" text-anchor="middle" font-size="14" font-weight="bold" fill="currentColor" stroke="none">VL</text></svg>`,
+  // Compute
+  server: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="4" width="32" height="12" rx="2"/><rect x="8" y="18" width="32" height="12" rx="2"/><rect x="8" y="32" width="32" height="12" rx="2"/><circle cx="14" cy="10" r="1.5" fill="currentColor"/><circle cx="14" cy="24" r="1.5" fill="currentColor"/><circle cx="14" cy="38" r="1.5" fill="currentColor"/><line x1="28" y1="10" x2="34" y2="10"/><line x1="28" y1="24" x2="34" y2="24"/><line x1="28" y1="38" x2="34" y2="38"/></svg>`,
+  proxmox: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="36" height="36" rx="4"/><line x1="6" y1="18" x2="42" y2="18"/><rect x="10" y="22" width="12" height="8" rx="1"/><rect x="26" y="22" width="12" height="8" rx="1"/><rect x="10" y="33" width="12" height="5" rx="1"/><rect x="26" y="33" width="12" height="5" rx="1"/><text x="24" y="14" text-anchor="middle" font-size="8" font-weight="bold" fill="currentColor" stroke="none">PVE</text></svg>`,
+  vm: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="8" width="32" height="24" rx="3"/><line x1="16" y1="36" x2="32" y2="36"/><line x1="24" y1="32" x2="24" y2="36"/><text x="24" y="24" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor" stroke="none">VM</text></svg>`,
+  container: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M24 4L6 14v20l18 10 18-10V14L24 4z"/><line x1="24" y1="24" x2="24" y2="44"/><line x1="6" y1="14" x2="24" y2="24"/><line x1="42" y1="14" x2="24" y2="24"/></svg>`,
+  minipc: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="10" y="14" width="28" height="20" rx="3"/><circle cx="24" cy="24" r="4"/><line x1="14" y1="34" x2="14" y2="38"/><line x1="34" y1="34" x2="34" y2="38"/><line x1="10" y1="38" x2="38" y2="38"/></svg>`,
+  raspberry_pi: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="10" width="32" height="28" rx="3"/><circle cx="12" cy="14" r="1" fill="currentColor"/><circle cx="12" cy="18" r="1" fill="currentColor"/><circle cx="12" cy="22" r="1" fill="currentColor"/><circle cx="12" cy="26" r="1" fill="currentColor"/><rect x="28" y="14" width="8" height="6" rx="1"/><rect x="28" y="24" width="8" height="6" rx="1"/><line x1="18" y1="38" x2="18" y2="42"/><line x1="30" y1="38" x2="30" y2="42"/></svg>`,
+  // Storage
+  nas: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="6" width="32" height="36" rx="3"/><line x1="8" y1="16" x2="40" y2="16"/><line x1="8" y1="26" x2="40" y2="26"/><line x1="8" y1="36" x2="40" y2="36"/><circle cx="34" cy="11" r="1.5" fill="currentColor"/><circle cx="34" cy="21" r="1.5" fill="currentColor"/><circle cx="34" cy="31" r="1.5" fill="currentColor"/></svg>`,
+  ssd: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="10" y="12" width="28" height="24" rx="3"/><rect x="14" y="16" width="8" height="4" rx="1"/><circle cx="32" cy="30" r="2"/></svg>`,
+  // Services
+  dns: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="24" cy="24" r="16"/><text x="24" y="20" text-anchor="middle" font-size="8" fill="currentColor" stroke="none">DNS</text><text x="24" y="32" text-anchor="middle" font-size="7" fill="currentColor" stroke="none">.com</text></svg>`,
+  vpn: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="14" width="36" height="20" rx="3"/><circle cx="24" cy="24" r="6"/><path d="M24 20v3l2 1" stroke-linecap="round"/><line x1="4" y1="24" x2="6" y2="24"/><line x1="42" y1="24" x2="44" y2="24"/></svg>`,
+  reverse_proxy: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="14" width="14" height="20" rx="2"/><rect x="28" y="8" width="14" height="10" rx="2"/><rect x="28" y="22" width="14" height="10" rx="2"/><rect x="28" y="36" width="14" height="6" rx="2"/><line x1="20" y1="24" x2="28" y2="13"/><line x1="20" y1="24" x2="28" y2="27"/><line x1="20" y1="24" x2="28" y2="39"/></svg>`,
+  docker: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="20" width="8" height="7" rx="1"/><rect x="14" y="20" width="8" height="7" rx="1"/><rect x="24" y="20" width="8" height="7" rx="1"/><rect x="14" y="11" width="8" height="7" rx="1"/><rect x="24" y="11" width="8" height="7" rx="1"/><rect x="34" y="20" width="8" height="7" rx="1"/><path d="M2 30c2 8 10 12 22 12s18-4 22-12" stroke-linecap="round"/></svg>`,
+  homeassistant: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M24 6L6 22h6v16h24V22h6L24 6z"/><rect x="18" y="28" width="12" height="10" rx="1"/></svg>`,
+  n8n: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="24" r="6"/><circle cx="36" cy="14" r="6"/><circle cx="36" cy="34" r="6"/><line x1="18" y1="22" x2="30" y2="16"/><line x1="18" y1="26" x2="30" y2="32"/></svg>`,
+  pihole: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="24" cy="24" r="16"/><circle cx="24" cy="24" r="8"/><circle cx="24" cy="24" r="2" fill="currentColor"/><line x1="24" y1="4" x2="24" y2="8"/><line x1="24" y1="40" x2="24" y2="44"/></svg>`,
+  // Endpoints
+  laptop: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="8" width="32" height="22" rx="2"/><path d="M4 34h40l-4 6H8l-4-6z"/></svg>`,
+  desktop: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="36" height="24" rx="2"/><line x1="24" y1="30" x2="24" y2="36"/><line x1="14" y1="36" x2="34" y2="36"/></svg>`,
+  phone: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="14" y="4" width="20" height="40" rx="3"/><line x1="14" y1="10" x2="34" y2="10"/><line x1="14" y1="36" x2="34" y2="36"/><circle cx="24" cy="40" r="1.5"/></svg>`,
+  smart_device: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="24" cy="18" r="8"/><line x1="24" y1="26" x2="24" y2="42"/><path d="M18 14c1.5-2 3.5-3 6-3s4.5 1 6 3"/><circle cx="24" cy="18" r="2" fill="currentColor"/></svg>`,
+  camera: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="14" width="36" height="24" rx="3"/><circle cx="24" cy="26" r="8"/><circle cx="24" cy="26" r="3"/><rect x="16" y="10" width="16" height="4" rx="1"/></svg>`,
+  printer: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="10" y="18" width="28" height="16" rx="2"/><rect x="14" y="6" width="20" height="12"/><rect x="14" y="34" width="20" height="10" rx="1"/><circle cx="32" cy="24" r="1.5" fill="currentColor"/></svg>`,
+  tv: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="8" width="40" height="28" rx="2"/><line x1="16" y1="40" x2="32" y2="40"/><line x1="24" y1="36" x2="24" y2="40"/></svg>`,
+  // Infrastructure
+  internet: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="24" cy="24" r="16"/><ellipse cx="24" cy="24" rx="8" ry="16"/><line x1="8" y1="24" x2="40" y2="24"/><line x1="10" y1="16" x2="38" y2="16"/><line x1="10" y1="32" x2="38" y2="32"/></svg>`,
+  cloud: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 36h24a8 8 0 000-16 10 10 0 00-19-4A7 7 0 0012 36z"/></svg>`,
+  rack: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="10" y="4" width="28" height="40" rx="2"/><line x1="14" y1="12" x2="34" y2="12"/><line x1="14" y1="20" x2="34" y2="20"/><line x1="14" y1="28" x2="34" y2="28"/><line x1="14" y1="36" x2="34" y2="36"/><circle cx="16" cy="8" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="24" r="1" fill="currentColor"/><circle cx="16" cy="32" r="1" fill="currentColor"/></svg>`,
+  ups: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="10" y="8" width="28" height="32" rx="3"/><path d="M26 16l-6 10h8l-6 10" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  patch_panel: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="16" width="40" height="16" rx="2"/><circle cx="10" cy="22" r="1.5"/><circle cx="16" cy="22" r="1.5"/><circle cx="22" cy="22" r="1.5"/><circle cx="28" cy="22" r="1.5"/><circle cx="34" cy="22" r="1.5"/><circle cx="40" cy="22" r="1.5"/><circle cx="10" cy="28" r="1.5"/><circle cx="16" cy="28" r="1.5"/><circle cx="22" cy="28" r="1.5"/><circle cx="28" cy="28" r="1.5"/><circle cx="34" cy="28" r="1.5"/><circle cx="40" cy="28" r="1.5"/></svg>`,
+  label: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="14" width="36" height="20" rx="3"/><line x1="12" y1="21" x2="36" y2="21"/><line x1="12" y1="27" x2="28" y2="27"/></svg>`,
+};
+
+// === COMPONENT LIBRARY ===
+const COMPONENTS = [
+  { section: 'Network', color: 'var(--accent)', items: [
+    { type: 'modem', label: 'Modem', cat: 'network', fields: { ip:'192.168.0.1', model:'', mac:'', uplink:'' }},
+    { type: 'router', label: 'Router', cat: 'network', fields: { ip:'192.168.1.1', model:'', gateway:'', dhcp:'Enabled', dns:'', ports:'4' }},
+    { type: 'firewall', label: 'Firewall', cat: 'network', fields: { ip:'', model:'OPNsense', wan_ip:'', lan_ip:'', ports:'6', rules:'' }},
+    { type: 'switch_net', label: 'Switch', cat: 'network', fields: { ip:'', model:'NETGEAR GS308E', ports:'8', vlans:'', managed:'Yes', speed:'1Gbps' }},
+    { type: 'access_point', label: 'Access Point', cat: 'network', fields: { ip:'', ssid:'', channel:'', band:'2.4/5GHz', model:'' }},
+    { type: 'vlan', label: 'VLAN', cat: 'network', fields: { vlan_id:'', name:'', subnet:'', gateway:'', tagged_ports:'' }},
+  ]},
+  { section: 'Compute', color: 'var(--accent2)', items: [
+    { type: 'server', label: 'Server', cat: 'compute', fields: { ip:'', hostname:'', os:'', cpu:'', ram:'', storage:'', role:'' }},
+    { type: 'proxmox', label: 'Proxmox VE', cat: 'compute', fields: { ip:'', hostname:'', version:'8.x', cpu:'', ram:'', vms:'', storage:'' }},
+    { type: 'vm', label: 'Virtual Machine', cat: 'compute', fields: { ip:'', hostname:'', os:'', vmid:'', cpu:'', ram:'', disk:'' }},
+    { type: 'container', label: 'LXC/Docker', cat: 'compute', fields: { ip:'', hostname:'', image:'', ctid:'', port:'', ram:'' }},
+    { type: 'minipc', label: 'Mini PC', cat: 'compute', fields: { ip:'', model:'Glovary N150', cpu:'N150', ram:'8GB DDR5', storage:'128GB NVMe', role:'' }},
+    { type: 'raspberry_pi', label: 'Raspberry Pi', cat: 'compute', fields: { ip:'', model:'Pi 4B', ram:'4GB', os:'', role:'' }},
+  ]},
+  { section: 'Storage', color: 'var(--warn)', items: [
+    { type: 'nas', label: 'NAS', cat: 'storage', fields: { ip:'', model:'', capacity:'', raid:'', shares:'', protocol:'' }},
+    { type: 'ssd', label: 'SSD / HDD', cat: 'storage', fields: { capacity:'', type:'NVMe', interface:'PCIe', mount:'' }},
+  ]},
+  { section: 'Services', color: 'var(--purple)', items: [
+    { type: 'dns', label: 'DNS Server', cat: 'service', fields: { ip:'', type:'Pi-hole', upstream:'1.1.1.1', domain:'' }},
+    { type: 'vpn', label: 'VPN', cat: 'service', fields: { ip:'', type:'WireGuard', port:'51820', subnet:'10.0.0.0/24' }},
+    { type: 'reverse_proxy', label: 'Reverse Proxy', cat: 'service', fields: { ip:'', type:'Nginx Proxy Manager', port:'443', domains:'' }},
+    { type: 'docker', label: 'Docker Host', cat: 'service', fields: { ip:'', containers:'', compose:'', volumes:'' }},
+    { type: 'homeassistant', label: 'Home Assistant', cat: 'service', fields: { ip:'', port:'8123', devices:'', automations:'' }},
+    { type: 'n8n', label: 'n8n Automation', cat: 'service', fields: { ip:'', port:'5678', version:'v2.6.4', workflows:'' }},
+    { type: 'pihole', label: 'Pi-hole', cat: 'service', fields: { ip:'', port:'80', blocked:'', clients:'' }},
+  ]},
+  { section: 'Endpoints', color: 'var(--blue)', items: [
+    { type: 'laptop', label: 'Laptop', cat: 'endpoint', fields: { ip:'', name:'', os:'', mac:'' }},
+    { type: 'desktop', label: 'Desktop', cat: 'endpoint', fields: { ip:'', name:'', os:'', mac:'' }},
+    { type: 'phone', label: 'Phone', cat: 'endpoint', fields: { ip:'', name:'', os:'', connection:'WiFi' }},
+    { type: 'smart_device', label: 'Smart Device', cat: 'endpoint', fields: { ip:'', name:'', type:'', protocol:'Zigbee' }},
+    { type: 'camera', label: 'IP Camera', cat: 'endpoint', fields: { ip:'', name:'', resolution:'', stream:'RTSP' }},
+    { type: 'printer', label: 'Printer', cat: 'endpoint', fields: { ip:'', name:'', type:'' }},
+    { type: 'tv', label: 'Smart TV', cat: 'endpoint', fields: { ip:'', name:'', model:'' }},
+  ]},
+  { section: 'Infrastructure', color: 'var(--yellow)', items: [
+    { type: 'internet', label: 'Internet/ISP', cat: 'infra', fields: { isp:'', speed:'', type:'Fiber', public_ip:'' }},
+    { type: 'cloud', label: 'Cloud Service', cat: 'infra', fields: { provider:'', service:'', region:'' }},
+    { type: 'rack', label: 'Server Rack', cat: 'infra', fields: { units:'42U', location:'', cooling:'' }},
+    { type: 'ups', label: 'UPS / Power', cat: 'infra', fields: { model:'', watts:'', runtime:'' }},
+    { type: 'patch_panel', label: 'Patch Panel', cat: 'infra', fields: { ports:'24', type:'Cat6', location:'' }},
+    { type: 'label', label: 'Text Label', cat: 'infra', fields: { text:'Label' }},
+  ]},
+];
+
+const CABLE_TYPES = [
+  { id: 'cat5e', label: 'Cat 5e', speed: '1 Gbps', style: 'solid', color: '' },
+  { id: 'cat6', label: 'Cat 6', speed: '1 Gbps', style: 'solid', color: '' },
+  { id: 'cat6a', label: 'Cat 6a', speed: '10 Gbps', style: 'solid', color: '' },
+  { id: 'cat7', label: 'Cat 7', speed: '10 Gbps', style: 'solid', color: '' },
+  { id: 'cat8', label: 'Cat 8', speed: '40 Gbps', style: 'solid', color: '' },
+  { id: 'fiber_sm', label: 'Fiber SM', speed: '100 Gbps', style: 'fiber', color: 'var(--yellow)' },
+  { id: 'fiber_mm', label: 'Fiber MM', speed: '10 Gbps', style: 'fiber', color: 'var(--warn)' },
+  { id: 'sfp', label: 'SFP+', speed: '10 Gbps', style: 'solid', color: 'var(--purple)' },
+  { id: 'usb', label: 'USB', speed: '5 Gbps', style: 'solid', color: 'var(--text-dim)' },
+  { id: 'wifi', label: 'WiFi', speed: 'Varies', style: 'wireless', color: '' },
+  { id: 'bluetooth', label: 'Bluetooth', speed: '3 Mbps', style: 'wireless', color: 'var(--blue)' },
+  { id: 'zigbee', label: 'Zigbee', speed: '250 Kbps', style: 'wireless', color: 'var(--accent2)' },
+];
+
+// === PORT TYPES ===
+const PORT_TYPES = {
+  rj45_1g:      { label: 'RJ45 1GbE',    speed: '1 Gbps',   shape: 'rect', w: 12, h: 10, color: '#4CAF50' },
+  rj45_100m:    { label: 'RJ45 100Mbps',  speed: '100 Mbps', shape: 'rect', w: 12, h: 10, color: '#8BC34A' },
+  rj45_2_5g:    { label: 'RJ45 2.5GbE',   speed: '2.5 Gbps', shape: 'rect', w: 12, h: 10, color: '#00BCD4' },
+  rj45_10g:     { label: 'RJ45 10GbE',    speed: '10 Gbps',  shape: 'rect', w: 12, h: 10, color: '#2196F3' },
+  rj45_poe:     { label: 'RJ45 PoE',      speed: '1 Gbps',   shape: 'rect', w: 12, h: 10, color: '#FF9800', poe: true },
+  rj45_poe_plus:{ label: 'RJ45 PoE+',     speed: '1 Gbps',   shape: 'rect', w: 12, h: 10, color: '#F57C00', poe: true },
+  rj45_poe_pp:  { label: 'RJ45 PoE++',    speed: '1 Gbps',   shape: 'rect', w: 12, h: 10, color: '#E65100', poe: true },
+  sfp:          { label: 'SFP',            speed: '1 Gbps',   shape: 'rect', w: 14, h: 8, color: '#9C27B0' },
+  sfp_plus:     { label: 'SFP+',           speed: '10 Gbps',  shape: 'rect', w: 14, h: 8, color: '#7B1FA2' },
+  sfp28:        { label: 'SFP28',          speed: '25 Gbps',  shape: 'rect', w: 14, h: 8, color: '#4A148C' },
+  qsfp_plus:    { label: 'QSFP+',          speed: '40 Gbps',  shape: 'rect', w: 18, h: 10, color: '#E91E63' },
+  qsfp28:       { label: 'QSFP28',         speed: '100 Gbps', shape: 'rect', w: 18, h: 10, color: '#C2185B' },
+  usb_a:        { label: 'USB-A',          speed: '5 Gbps',   shape: 'rect', w: 10, h: 8, color: '#607D8B' },
+  usb_c:        { label: 'USB-C',          speed: '10 Gbps',  shape: 'rect', w: 8, h: 6, color: '#455A64' },
+  console_rj45: { label: 'Console',        speed: '—',        shape: 'rect', w: 12, h: 10, color: '#795548' },
+  power:        { label: 'Power',          speed: '—',        shape: 'circle', w: 10, h: 10, color: '#F44336' },
+};
+
+// === DEVICE DATABASE ===
+const DEVICE_DATABASE = {
+  // ── ROUTERS ──
+  router: [
+    { id: 'cisco-isr-4321', manufacturer: 'Cisco', model: 'ISR 4321', formFactor: '1U', specs: '2x GE, 50 Mbps throughput', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 2, namePattern: 'GE0/{i}', startX: 20, startY: 12, spacing: 16 },
+      { label: 'Mgmt', type: 'rj45_1g', count: 1, namePattern: 'Mgmt0', startX: 58, startY: 12, spacing: 0 },
+      { label: 'Console', type: 'console_rj45', count: 1, namePattern: 'Con0', startX: 74, startY: 12, spacing: 0 },
+      { label: 'USB', type: 'usb_a', count: 1, namePattern: 'USB0', startX: 90, startY: 12, spacing: 0 },
+    ]},
+    { id: 'cisco-isr-4331', manufacturer: 'Cisco', model: 'ISR 4331', formFactor: '1U', specs: '3x GE, NIM slots, 100 Mbps', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 3, namePattern: 'GE0/{i}', startX: 20, startY: 12, spacing: 16 },
+      { label: 'SFP', type: 'sfp', count: 1, namePattern: 'SFP0', startX: 72, startY: 12, spacing: 0 },
+      { label: 'Console', type: 'console_rj45', count: 1, namePattern: 'Con0', startX: 90, startY: 12, spacing: 0 },
+    ]},
+    { id: 'cisco-isr-4351', manufacturer: 'Cisco', model: 'ISR 4351', formFactor: '1U', specs: '3x GE, 200 Mbps throughput', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 3, namePattern: 'GE0/{i}', startX: 20, startY: 12, spacing: 16 },
+      { label: 'SFP', type: 'sfp', count: 2, namePattern: 'SFP{i}', startX: 72, startY: 12, spacing: 18 },
+      { label: 'Console', type: 'console_rj45', count: 1, namePattern: 'Con0', startX: 112, startY: 12, spacing: 0 },
+    ]},
+    { id: 'ubiquiti-er-x', manufacturer: 'Ubiquiti', model: 'EdgeRouter X', formFactor: 'Desktop', specs: '5x GE, passive PoE in', portGroups: [
+      { label: 'Eth', type: 'rj45_1g', count: 5, namePattern: 'eth{i}', startX: 16, startY: 12, spacing: 16 },
+    ]},
+    { id: 'ubiquiti-er-4', manufacturer: 'Ubiquiti', model: 'EdgeRouter 4', formFactor: 'Desktop', specs: '3x GE + 1 SFP, 3.4M pps', portGroups: [
+      { label: 'Eth', type: 'rj45_1g', count: 3, namePattern: 'eth{i}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'SFP', type: 'sfp', count: 1, namePattern: 'eth3', startX: 68, startY: 12, spacing: 0 },
+    ]},
+    { id: 'ubiquiti-er-6p', manufacturer: 'Ubiquiti', model: 'EdgeRouter 6P', formFactor: 'Desktop', specs: '5x GE PoE + 1 SFP', portGroups: [
+      { label: 'Eth', type: 'rj45_poe', count: 5, namePattern: 'eth{i}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'SFP', type: 'sfp', count: 1, namePattern: 'eth5', startX: 100, startY: 12, spacing: 0 },
+    ]},
+    { id: 'mikrotik-hex', manufacturer: 'MikroTik', model: 'hEX (RB750Gr3)', formFactor: 'Desktop', specs: '5x GE, RouterOS', portGroups: [
+      { label: 'Eth', type: 'rj45_1g', count: 5, namePattern: 'ether{I}', startX: 16, startY: 12, spacing: 16 },
+    ]},
+    { id: 'mikrotik-rb4011', manufacturer: 'MikroTik', model: 'RB4011iGS+', formFactor: 'Desktop', specs: '10x GE + 1 SFP+', portGroups: [
+      { label: 'Eth', type: 'rj45_1g', count: 10, namePattern: 'ether{I}', startX: 12, startY: 12, spacing: 14 },
+      { label: 'SFP+', type: 'sfp_plus', count: 1, namePattern: 'sfp-plus1', startX: 156, startY: 12, spacing: 0 },
+    ]},
+    { id: 'tp-link-er605', manufacturer: 'TP-Link', model: 'ER605 (TL-R605)', formFactor: 'Desktop', specs: '4x GE WAN/LAN + 1 GE LAN', portGroups: [
+      { label: 'WAN/LAN', type: 'rj45_1g', count: 4, namePattern: 'WAN/LAN{I}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'LAN', type: 'rj45_1g', count: 1, namePattern: 'LAN', startX: 82, startY: 12, spacing: 0 },
+    ]},
+    { id: 'tp-link-er7206', manufacturer: 'TP-Link', model: 'ER7206 (TL-ER7206)', formFactor: 'Desktop', specs: '1 SFP + 5 GE, multi-WAN', portGroups: [
+      { label: 'SFP', type: 'sfp', count: 1, namePattern: 'SFP WAN', startX: 16, startY: 12, spacing: 0 },
+      { label: 'GE', type: 'rj45_1g', count: 5, namePattern: 'GE{I}', startX: 36, startY: 12, spacing: 16 },
+    ]},
+    { id: 'pfsense-sg3100', manufacturer: 'Netgate', model: 'SG-3100', formFactor: 'Desktop', specs: '2x GE + 4-port switch, pfSense', portGroups: [
+      { label: 'WAN/LAN', type: 'rj45_1g', count: 2, namePattern: 'igb{i}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'Switch', type: 'rj45_1g', count: 4, namePattern: 'mvneta{I}', startX: 50, startY: 12, spacing: 16 },
+    ]},
+  ],
+  // ── SWITCHES ──
+  switch_net: [
+    { id: 'cisco-cbs350-24t', manufacturer: 'Cisco', model: 'CBS350-24T-4G', formFactor: '1U', specs: '24x GE + 4 SFP, L3 managed', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 24, namePattern: 'GE{I}', startX: 12, startY: 8, spacing: 9 },
+      { label: 'SFP', type: 'sfp', count: 4, namePattern: 'SFP{I}', startX: 232, startY: 8, spacing: 16 },
+    ]},
+    { id: 'cisco-cbs250-8t', manufacturer: 'Cisco', model: 'CBS250-8T-E-2G', formFactor: 'Desktop', specs: '8x GE + 2 SFP combo', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 8, namePattern: 'GE{I}', startX: 16, startY: 12, spacing: 14 },
+      { label: 'SFP', type: 'sfp', count: 2, namePattern: 'SFP{I}', startX: 132, startY: 12, spacing: 16 },
+    ]},
+    { id: 'ubiquiti-usw-24', manufacturer: 'Ubiquiti', model: 'USW-24', formFactor: '1U', specs: '24x GE + 2 SFP, UniFi', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 24, namePattern: 'Port {I}', startX: 12, startY: 8, spacing: 9 },
+      { label: 'SFP', type: 'sfp', count: 2, namePattern: 'SFP {I}', startX: 232, startY: 8, spacing: 16 },
+    ]},
+    { id: 'ubiquiti-usw-24-poe', manufacturer: 'Ubiquiti', model: 'USW-24-PoE', formFactor: '1U', specs: '24x GE PoE+ (95W) + 2 SFP', portGroups: [
+      { label: 'PoE', type: 'rj45_poe_plus', count: 16, namePattern: 'Port {I}', startX: 12, startY: 8, spacing: 9 },
+      { label: 'GE', type: 'rj45_1g', count: 8, namePattern: 'Port {I16}', startX: 160, startY: 8, spacing: 9 },
+      { label: 'SFP', type: 'sfp', count: 2, namePattern: 'SFP {I}', startX: 236, startY: 8, spacing: 16 },
+    ]},
+    { id: 'ubiquiti-usw-48-poe', manufacturer: 'Ubiquiti', model: 'USW-48-PoE', formFactor: '1U', specs: '48x GE PoE+ (195W) + 4 SFP', portGroups: [
+      { label: 'PoE', type: 'rj45_poe_plus', count: 32, namePattern: 'Port {I}', startX: 10, startY: 6, spacing: 8 },
+      { label: 'GE', type: 'rj45_1g', count: 16, namePattern: 'Port {I32}', startX: 268, startY: 6, spacing: 8 },
+      { label: 'SFP', type: 'sfp', count: 4, namePattern: 'SFP {I}', startX: 402, startY: 6, spacing: 16 },
+    ]},
+    { id: 'ubiquiti-usw-lite-8', manufacturer: 'Ubiquiti', model: 'USW-Lite-8-PoE', formFactor: 'Desktop', specs: '8x GE (4 PoE+ 52W)', portGroups: [
+      { label: 'PoE', type: 'rj45_poe_plus', count: 4, namePattern: 'Port {I}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'Port {I4}', startX: 82, startY: 12, spacing: 16 },
+    ]},
+    { id: 'ubiquiti-usw-pro-24-poe', manufacturer: 'Ubiquiti', model: 'USW-Pro-24-PoE', formFactor: '1U', specs: '24x GE PoE++ (400W) + 2 SFP+', portGroups: [
+      { label: 'PoE', type: 'rj45_poe_pp', count: 24, namePattern: 'Port {I}', startX: 12, startY: 8, spacing: 9 },
+      { label: 'SFP+', type: 'sfp_plus', count: 2, namePattern: 'SFP+ {I}', startX: 232, startY: 8, spacing: 18 },
+    ]},
+    { id: 'ubiquiti-usw-enterprise-8', manufacturer: 'Ubiquiti', model: 'USW-Enterprise-8-PoE', formFactor: 'Desktop', specs: '8x 2.5GbE PoE+ + 2 SFP+', portGroups: [
+      { label: '2.5G PoE', type: 'rj45_2_5g', count: 8, namePattern: 'Port {I}', startX: 16, startY: 12, spacing: 14 },
+      { label: 'SFP+', type: 'sfp_plus', count: 2, namePattern: 'SFP+ {I}', startX: 132, startY: 12, spacing: 18 },
+    ]},
+    { id: 'mikrotik-crs326', manufacturer: 'MikroTik', model: 'CRS326-24G-2S+', formFactor: '1U', specs: '24x GE + 2 SFP+, SwOS/RouterOS', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 24, namePattern: 'ether{I}', startX: 12, startY: 8, spacing: 9 },
+      { label: 'SFP+', type: 'sfp_plus', count: 2, namePattern: 'sfp-sfpplus{I}', startX: 232, startY: 8, spacing: 18 },
+    ]},
+    { id: 'mikrotik-crs305', manufacturer: 'MikroTik', model: 'CRS305-1G-4S+', formFactor: 'Desktop', specs: '1x GE + 4 SFP+', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 1, namePattern: 'ether1', startX: 16, startY: 12, spacing: 0 },
+      { label: 'SFP+', type: 'sfp_plus', count: 4, namePattern: 'sfp-sfpplus{I}', startX: 36, startY: 12, spacing: 18 },
+    ]},
+    { id: 'netgear-gs308e', manufacturer: 'NETGEAR', model: 'GS308E', formFactor: 'Desktop', specs: '8x GE, smart managed, VLAN', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 8, namePattern: 'Port {I}', startX: 16, startY: 12, spacing: 14 },
+    ]},
+    { id: 'netgear-gs316ep', manufacturer: 'NETGEAR', model: 'GS316EP', formFactor: 'Desktop', specs: '16x GE (15 PoE+ 180W) + 1 SFP', portGroups: [
+      { label: 'PoE', type: 'rj45_poe_plus', count: 15, namePattern: 'Port {I}', startX: 10, startY: 12, spacing: 12 },
+      { label: 'GE', type: 'rj45_1g', count: 1, namePattern: 'Port 16', startX: 192, startY: 12, spacing: 0 },
+      { label: 'SFP', type: 'sfp', count: 1, namePattern: 'SFP1', startX: 210, startY: 12, spacing: 0 },
+    ]},
+    { id: 'tp-link-sg108e', manufacturer: 'TP-Link', model: 'TL-SG108E', formFactor: 'Desktop', specs: '8x GE, easy smart, VLAN/QoS', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 8, namePattern: 'Port {I}', startX: 16, startY: 12, spacing: 14 },
+    ]},
+    { id: 'tp-link-sg3428', manufacturer: 'TP-Link', model: 'TL-SG3428', formFactor: '1U', specs: '24x GE + 4 SFP, L2+ managed', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 24, namePattern: 'Port {I}', startX: 12, startY: 8, spacing: 9 },
+      { label: 'SFP', type: 'sfp', count: 4, namePattern: 'SFP{I}', startX: 232, startY: 8, spacing: 16 },
+    ]},
+  ],
+  // ── FIREWALLS ──
+  firewall: [
+    { id: 'netgate-sg1100', manufacturer: 'Netgate', model: 'SG-1100', formFactor: 'Desktop', specs: '3x GE, ARM, pfSense+', portGroups: [
+      { label: 'Eth', type: 'rj45_1g', count: 3, namePattern: 'mvneta{i}', startX: 16, startY: 12, spacing: 16 },
+    ]},
+    { id: 'netgate-sg2100', manufacturer: 'Netgate', model: '2100', formFactor: 'Desktop', specs: '1x GE + 4-port switch + 1 SFP', portGroups: [
+      { label: 'WAN', type: 'rj45_1g', count: 1, namePattern: 'igb0', startX: 16, startY: 12, spacing: 0 },
+      { label: 'LAN', type: 'rj45_1g', count: 4, namePattern: 'mvneta{I}', startX: 34, startY: 12, spacing: 16 },
+      { label: 'SFP', type: 'sfp', count: 1, namePattern: 'ix0', startX: 102, startY: 12, spacing: 0 },
+    ]},
+    { id: 'netgate-sg4100', manufacturer: 'Netgate', model: '4100', formFactor: 'Desktop', specs: '6x GE + 2 SFP+, pfSense+', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 6, namePattern: 'igb{i}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'SFP+', type: 'sfp_plus', count: 2, namePattern: 'ix{i}', startX: 116, startY: 12, spacing: 18 },
+    ]},
+    { id: 'fortinet-fg40f', manufacturer: 'Fortinet', model: 'FortiGate 40F', formFactor: 'Desktop', specs: '5x GE, 5 Gbps FW', portGroups: [
+      { label: 'WAN', type: 'rj45_1g', count: 1, namePattern: 'WAN', startX: 16, startY: 12, spacing: 0 },
+      { label: 'LAN', type: 'rj45_1g', count: 3, namePattern: 'Port{I}', startX: 34, startY: 12, spacing: 16 },
+      { label: 'DMZ', type: 'rj45_1g', count: 1, namePattern: 'DMZ', startX: 86, startY: 12, spacing: 0 },
+    ]},
+    { id: 'fortinet-fg60f', manufacturer: 'Fortinet', model: 'FortiGate 60F', formFactor: 'Desktop', specs: '10x GE, 10 Gbps FW, WiFi variant', portGroups: [
+      { label: 'WAN', type: 'rj45_1g', count: 2, namePattern: 'WAN{I}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'DMZ', type: 'rj45_1g', count: 1, namePattern: 'DMZ', startX: 50, startY: 12, spacing: 0 },
+      { label: 'LAN', type: 'rj45_1g', count: 7, namePattern: 'Port{I}', startX: 68, startY: 12, spacing: 14 },
+    ]},
+    { id: 'fortinet-fg80f', manufacturer: 'Fortinet', model: 'FortiGate 80F', formFactor: 'Desktop', specs: '8x GE + 2 SFP, 10 Gbps FW', portGroups: [
+      { label: 'WAN', type: 'rj45_1g', count: 2, namePattern: 'WAN{I}', startX: 16, startY: 12, spacing: 16 },
+      { label: 'LAN', type: 'rj45_1g', count: 6, namePattern: 'Port{I}', startX: 50, startY: 12, spacing: 14 },
+      { label: 'SFP', type: 'sfp', count: 2, namePattern: 'SFP{I}', startX: 140, startY: 12, spacing: 16 },
+    ]},
+    { id: 'ubiquiti-udm-pro', manufacturer: 'Ubiquiti', model: 'UDM Pro', formFactor: '1U', specs: '1x GE WAN + 1 SFP+ WAN + 8 GE LAN + 1 SFP+ LAN', portGroups: [
+      { label: 'WAN', type: 'rj45_1g', count: 1, namePattern: 'WAN', startX: 16, startY: 12, spacing: 0 },
+      { label: 'SFP+ WAN', type: 'sfp_plus', count: 1, namePattern: 'SFP+ WAN', startX: 34, startY: 12, spacing: 0 },
+      { label: 'LAN', type: 'rj45_1g', count: 8, namePattern: 'Port {I}', startX: 56, startY: 12, spacing: 14 },
+      { label: 'SFP+ LAN', type: 'sfp_plus', count: 1, namePattern: 'SFP+ LAN', startX: 172, startY: 12, spacing: 0 },
+    ]},
+    { id: 'ubiquiti-udm-se', manufacturer: 'Ubiquiti', model: 'UDM SE', formFactor: '1U', specs: '1x 2.5G WAN + 1 SFP+ WAN + 8 GE PoE LAN + 1 SFP+', portGroups: [
+      { label: 'WAN', type: 'rj45_2_5g', count: 1, namePattern: 'WAN', startX: 16, startY: 12, spacing: 0 },
+      { label: 'SFP+ WAN', type: 'sfp_plus', count: 1, namePattern: 'SFP+ WAN', startX: 34, startY: 12, spacing: 0 },
+      { label: 'PoE LAN', type: 'rj45_poe_plus', count: 8, namePattern: 'Port {I}', startX: 56, startY: 12, spacing: 14 },
+      { label: 'SFP+', type: 'sfp_plus', count: 1, namePattern: 'SFP+ LAN', startX: 172, startY: 12, spacing: 0 },
+    ]},
+  ],
+  // ── ACCESS POINTS ──
+  access_point: [
+    { id: 'ubiquiti-u6-lite', manufacturer: 'Ubiquiti', model: 'U6 Lite', formFactor: 'Ceiling', specs: 'WiFi 6, 1x GE PoE, 1.5 Gbps', portGroups: [
+      { label: 'Uplink', type: 'rj45_poe', count: 1, namePattern: 'Uplink', startX: 36, startY: 12, spacing: 0 },
+    ]},
+    { id: 'ubiquiti-u6-pro', manufacturer: 'Ubiquiti', model: 'U6 Pro', formFactor: 'Ceiling', specs: 'WiFi 6, 1x GE PoE, 5.3 Gbps', portGroups: [
+      { label: 'Uplink', type: 'rj45_poe_plus', count: 1, namePattern: 'Uplink', startX: 36, startY: 12, spacing: 0 },
+    ]},
+    { id: 'ubiquiti-u6-enterprise', manufacturer: 'Ubiquiti', model: 'U6 Enterprise', formFactor: 'Ceiling', specs: 'WiFi 6E, 1x 2.5GbE PoE+', portGroups: [
+      { label: 'Uplink', type: 'rj45_2_5g', count: 1, namePattern: 'Uplink', startX: 36, startY: 12, spacing: 0 },
+    ]},
+    { id: 'ubiquiti-u6-mesh', manufacturer: 'Ubiquiti', model: 'U6 Mesh', formFactor: 'Wall/Outdoor', specs: 'WiFi 6, 1x GE PoE, weatherproof', portGroups: [
+      { label: 'Uplink', type: 'rj45_poe', count: 1, namePattern: 'Uplink', startX: 36, startY: 12, spacing: 0 },
+    ]},
+    { id: 'tp-link-eap670', manufacturer: 'TP-Link', model: 'EAP670', formFactor: 'Ceiling', specs: 'WiFi 6 AX5400, 1x 2.5GbE PoE+', portGroups: [
+      { label: 'Uplink', type: 'rj45_2_5g', count: 1, namePattern: 'Uplink', startX: 36, startY: 12, spacing: 0 },
+    ]},
+    { id: 'tp-link-eap245', manufacturer: 'TP-Link', model: 'EAP245', formFactor: 'Ceiling', specs: 'WiFi 5 AC1750, 1x GE PoE', portGroups: [
+      { label: 'Uplink', type: 'rj45_poe', count: 1, namePattern: 'Uplink', startX: 36, startY: 12, spacing: 0 },
+    ]},
+    { id: 'mikrotik-cap-ax', manufacturer: 'MikroTik', model: 'cAP ax', formFactor: 'Ceiling', specs: 'WiFi 6, 2x GE, PoE in/out', portGroups: [
+      { label: 'Eth', type: 'rj45_poe', count: 2, namePattern: 'ether{I}', startX: 28, startY: 12, spacing: 16 },
+    ]},
+    { id: 'ruckus-r550', manufacturer: 'Ruckus', model: 'R550', formFactor: 'Ceiling', specs: 'WiFi 6, 1x GE + 1x GE, PoE', portGroups: [
+      { label: 'Uplink', type: 'rj45_poe_plus', count: 1, namePattern: 'Uplink', startX: 28, startY: 12, spacing: 0 },
+      { label: 'LAN', type: 'rj45_1g', count: 1, namePattern: 'LAN', startX: 46, startY: 12, spacing: 0 },
+    ]},
+  ],
+  // ── SERVERS ──
+  server: [
+    { id: 'dell-r730', manufacturer: 'Dell', model: 'PowerEdge R730', formFactor: '2U', specs: '2x Xeon E5-2600 v4, 768GB DDR4, 16 bays', portGroups: [
+      { label: 'iDRAC', type: 'rj45_1g', count: 1, namePattern: 'iDRAC', startX: 16, startY: 12, spacing: 0 },
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'NIC{I}', startX: 36, startY: 12, spacing: 14 },
+      { label: 'Power', type: 'power', count: 2, namePattern: 'PSU{I}', startX: 100, startY: 12, spacing: 14 },
+    ]},
+    { id: 'dell-r740', manufacturer: 'Dell', model: 'PowerEdge R740', formFactor: '2U', specs: '2x Xeon Gold, 3TB DDR4, 16 bays', portGroups: [
+      { label: 'iDRAC', type: 'rj45_1g', count: 1, namePattern: 'iDRAC', startX: 16, startY: 12, spacing: 0 },
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'NIC{I}', startX: 36, startY: 12, spacing: 14 },
+      { label: 'SFP28', type: 'sfp28', count: 2, namePattern: '25G-{I}', startX: 100, startY: 12, spacing: 18 },
+      { label: 'Power', type: 'power', count: 2, namePattern: 'PSU{I}', startX: 140, startY: 12, spacing: 14 },
+    ]},
+    { id: 'dell-r750', manufacturer: 'Dell', model: 'PowerEdge R750', formFactor: '2U', specs: '2x Xeon Ice Lake, 2TB DDR4', portGroups: [
+      { label: 'iDRAC', type: 'rj45_1g', count: 1, namePattern: 'iDRAC', startX: 16, startY: 12, spacing: 0 },
+      { label: 'GE', type: 'rj45_1g', count: 2, namePattern: 'NIC{I}', startX: 36, startY: 12, spacing: 14 },
+      { label: 'SFP28', type: 'sfp28', count: 2, namePattern: '25G-{I}', startX: 68, startY: 12, spacing: 18 },
+      { label: 'Power', type: 'power', count: 2, namePattern: 'PSU{I}', startX: 110, startY: 12, spacing: 14 },
+    ]},
+    { id: 'hpe-dl380-g10', manufacturer: 'HPE', model: 'ProLiant DL380 Gen10', formFactor: '2U', specs: '2x Xeon Scalable, 3TB DDR4, 24+6 bays', portGroups: [
+      { label: 'iLO', type: 'rj45_1g', count: 1, namePattern: 'iLO', startX: 16, startY: 12, spacing: 0 },
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'NIC{I}', startX: 36, startY: 12, spacing: 14 },
+      { label: 'Power', type: 'power', count: 2, namePattern: 'PSU{I}', startX: 100, startY: 12, spacing: 14 },
+    ]},
+    { id: 'hpe-dl360-g10', manufacturer: 'HPE', model: 'ProLiant DL360 Gen10', formFactor: '1U', specs: '2x Xeon Scalable, 3TB DDR4, 10 SFF', portGroups: [
+      { label: 'iLO', type: 'rj45_1g', count: 1, namePattern: 'iLO', startX: 16, startY: 12, spacing: 0 },
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'NIC{I}', startX: 36, startY: 12, spacing: 14 },
+      { label: 'Power', type: 'power', count: 2, namePattern: 'PSU{I}', startX: 100, startY: 12, spacing: 14 },
+    ]},
+    { id: 'supermicro-1029u', manufacturer: 'Supermicro', model: 'SYS-1029U-TR4', formFactor: '1U', specs: '2x Xeon Scalable, 6TB DDR4', portGroups: [
+      { label: 'IPMI', type: 'rj45_1g', count: 1, namePattern: 'IPMI', startX: 16, startY: 12, spacing: 0 },
+      { label: '10GbE', type: 'rj45_10g', count: 4, namePattern: '10G-{I}', startX: 36, startY: 12, spacing: 14 },
+      { label: 'Power', type: 'power', count: 2, namePattern: 'PSU{I}', startX: 100, startY: 12, spacing: 14 },
+    ]},
+    { id: 'lenovo-sr630', manufacturer: 'Lenovo', model: 'ThinkSystem SR630', formFactor: '1U', specs: '2x Xeon Scalable, 1.5TB DDR4', portGroups: [
+      { label: 'XCC', type: 'rj45_1g', count: 1, namePattern: 'XCC', startX: 16, startY: 12, spacing: 0 },
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'NIC{I}', startX: 36, startY: 12, spacing: 14 },
+      { label: 'Power', type: 'power', count: 2, namePattern: 'PSU{I}', startX: 100, startY: 12, spacing: 14 },
+    ]},
+  ],
+  // ── NAS ──
+  nas: [
+    { id: 'synology-ds920', manufacturer: 'Synology', model: 'DS920+', formFactor: 'Desktop', specs: '4-bay, Celeron J4125, 2x GE, NVMe cache', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 2, namePattern: 'LAN {I}', startX: 24, startY: 12, spacing: 16 },
+      { label: 'USB', type: 'usb_a', count: 2, namePattern: 'USB {I}', startX: 60, startY: 12, spacing: 14 },
+    ]},
+    { id: 'synology-ds1621', manufacturer: 'Synology', model: 'DS1621+', formFactor: 'Desktop', specs: '6-bay, Ryzen V1500B, 4x GE, NVMe', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'LAN {I}', startX: 16, startY: 12, spacing: 14 },
+      { label: 'USB', type: 'usb_a', count: 3, namePattern: 'USB {I}', startX: 76, startY: 12, spacing: 14 },
+    ]},
+    { id: 'synology-ds1821', manufacturer: 'Synology', model: 'DS1821+', formFactor: 'Desktop', specs: '8-bay, Ryzen V1500B, 4x GE, 10G opt', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'LAN {I}', startX: 16, startY: 12, spacing: 14 },
+      { label: 'USB', type: 'usb_a', count: 2, namePattern: 'USB {I}', startX: 76, startY: 12, spacing: 14 },
+    ]},
+    { id: 'synology-rs1221', manufacturer: 'Synology', model: 'RS1221+', formFactor: '2U', specs: '8-bay rack, Ryzen V1500B, 4x GE', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 4, namePattern: 'LAN {I}', startX: 16, startY: 12, spacing: 14 },
+      { label: 'USB', type: 'usb_a', count: 2, namePattern: 'USB {I}', startX: 76, startY: 12, spacing: 14 },
+    ]},
+    { id: 'qnap-ts-464', manufacturer: 'QNAP', model: 'TS-464', formFactor: 'Desktop', specs: '4-bay, Celeron N5095, 2x 2.5GbE', portGroups: [
+      { label: '2.5G', type: 'rj45_2_5g', count: 2, namePattern: 'LAN {I}', startX: 24, startY: 12, spacing: 16 },
+      { label: 'USB', type: 'usb_a', count: 2, namePattern: 'USB {I}', startX: 60, startY: 12, spacing: 14 },
+    ]},
+    { id: 'qnap-ts-873a', manufacturer: 'QNAP', model: 'TS-873A', formFactor: 'Desktop', specs: '8-bay, Ryzen V1500B, 2x 2.5GbE', portGroups: [
+      { label: '2.5G', type: 'rj45_2_5g', count: 2, namePattern: 'LAN {I}', startX: 24, startY: 12, spacing: 16 },
+      { label: 'USB', type: 'usb_a', count: 3, namePattern: 'USB {I}', startX: 60, startY: 12, spacing: 14 },
+    ]},
+    { id: 'qnap-ts-h973ax', manufacturer: 'QNAP', model: 'TS-h973AX', formFactor: 'Desktop', specs: '9-bay hybrid, Ryzen, 10GbE + 2.5GbE', portGroups: [
+      { label: '10G', type: 'rj45_10g', count: 1, namePattern: '10G', startX: 16, startY: 12, spacing: 0 },
+      { label: '2.5G', type: 'rj45_2_5g', count: 2, namePattern: '2.5G-{I}', startX: 34, startY: 12, spacing: 16 },
+      { label: 'USB', type: 'usb_a', count: 3, namePattern: 'USB {I}', startX: 70, startY: 12, spacing: 14 },
+    ]},
+    { id: 'asustor-as6704t', manufacturer: 'Asustor', model: 'AS6704T', formFactor: 'Desktop', specs: '4-bay, Celeron N5105, 2x 2.5GbE', portGroups: [
+      { label: '2.5G', type: 'rj45_2_5g', count: 2, namePattern: 'LAN {I}', startX: 24, startY: 12, spacing: 16 },
+      { label: 'USB', type: 'usb_a', count: 3, namePattern: 'USB {I}', startX: 60, startY: 12, spacing: 14 },
+    ]},
+  ],
+  // ── MINI PCs ──
+  minipc: [
+    { id: 'intel-nuc-12', manufacturer: 'Intel', model: 'NUC 12 Pro', formFactor: 'Mini', specs: 'i7-1260P, 64GB DDR4, TB4, 2.5GbE', portGroups: [
+      { label: '2.5G', type: 'rj45_2_5g', count: 1, namePattern: 'eth0', startX: 20, startY: 12, spacing: 0 },
+      { label: 'USB-A', type: 'usb_a', count: 3, namePattern: 'USB{I}', startX: 38, startY: 12, spacing: 14 },
+      { label: 'USB-C', type: 'usb_c', count: 2, namePattern: 'TB{I}', startX: 82, startY: 12, spacing: 12 },
+    ]},
+    { id: 'beelink-ser5', manufacturer: 'Beelink', model: 'SER5 5560U', formFactor: 'Mini', specs: 'Ryzen 5 5560U, 32GB DDR4, GbE', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 1, namePattern: 'eth0', startX: 20, startY: 12, spacing: 0 },
+      { label: 'USB-A', type: 'usb_a', count: 4, namePattern: 'USB{I}', startX: 38, startY: 12, spacing: 14 },
+    ]},
+    { id: 'beelink-eq12', manufacturer: 'Beelink', model: 'EQ12', formFactor: 'Mini', specs: 'N100, 16GB DDR5, dual 2.5GbE', portGroups: [
+      { label: '2.5G', type: 'rj45_2_5g', count: 2, namePattern: 'eth{i}', startX: 20, startY: 12, spacing: 16 },
+      { label: 'USB-A', type: 'usb_a', count: 2, namePattern: 'USB{I}', startX: 56, startY: 12, spacing: 14 },
+    ]},
+    { id: 'lenovo-m720q', manufacturer: 'Lenovo', model: 'ThinkCentre M720q', formFactor: 'Tiny', specs: 'i5-8500T, 32GB DDR4, GbE', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 1, namePattern: 'eth0', startX: 20, startY: 12, spacing: 0 },
+      { label: 'USB-A', type: 'usb_a', count: 5, namePattern: 'USB{I}', startX: 38, startY: 12, spacing: 12 },
+      { label: 'USB-C', type: 'usb_c', count: 1, namePattern: 'USB-C', startX: 100, startY: 12, spacing: 0 },
+    ]},
+    { id: 'lenovo-m920q', manufacturer: 'Lenovo', model: 'ThinkCentre M920q', formFactor: 'Tiny', specs: 'i7-9700T, 64GB DDR4, GbE', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 1, namePattern: 'eth0', startX: 20, startY: 12, spacing: 0 },
+      { label: 'USB-A', type: 'usb_a', count: 5, namePattern: 'USB{I}', startX: 38, startY: 12, spacing: 12 },
+      { label: 'USB-C', type: 'usb_c', count: 1, namePattern: 'USB-C', startX: 100, startY: 12, spacing: 0 },
+    ]},
+    { id: 'hp-elitedesk-800-g5', manufacturer: 'HP', model: 'EliteDesk 800 G5 Mini', formFactor: 'Mini', specs: 'i7-9700, 64GB DDR4, GbE', portGroups: [
+      { label: 'GE', type: 'rj45_1g', count: 1, namePattern: 'eth0', startX: 20, startY: 12, spacing: 0 },
+      { label: 'USB-A', type: 'usb_a', count: 4, namePattern: 'USB{I}', startX: 38, startY: 12, spacing: 14 },
+      { label: 'USB-C', type: 'usb_c', count: 1, namePattern: 'USB-C', startX: 96, startY: 12, spacing: 0 },
+    ]},
+  ],
+  // ── UPS ──
+  ups: [
+    { id: 'apc-bx1500m', manufacturer: 'APC', model: 'Back-UPS BX1500M', formFactor: 'Tower', specs: '1500VA/900W, AVR, 6 outlets', portGroups: [
+      { label: 'USB', type: 'usb_a', count: 1, namePattern: 'USB', startX: 36, startY: 12, spacing: 0 },
+    ]},
+    { id: 'apc-smt1500rm', manufacturer: 'APC', model: 'Smart-UPS 1500 RM', formFactor: '2U', specs: '1500VA/1000W, network card, rack', portGroups: [
+      { label: 'Network', type: 'rj45_1g', count: 1, namePattern: 'NMC', startX: 24, startY: 12, spacing: 0 },
+      { label: 'USB', type: 'usb_a', count: 1, namePattern: 'USB', startX: 42, startY: 12, spacing: 0 },
+    ]},
+    { id: 'cyberpower-or1500', manufacturer: 'CyberPower', model: 'OR1500LCDRM1U', formFactor: '1U', specs: '1500VA/900W, LCD, 6 outlets', portGroups: [
+      { label: 'USB', type: 'usb_a', count: 1, namePattern: 'USB', startX: 36, startY: 12, spacing: 0 },
+    ]},
+  ],
+};
+
+// Compute total port count for a device
+function devicePortCount(dev) {
+  return dev.portGroups.reduce((sum, g) => sum + g.count, 0);
+}
+
+// Resolve a port name pattern: {i} = 0-based, {I} = 1-based, {I<offset>} = 1-based + offset
+function resolvePortName(pattern, idx) {
+  return pattern
+    .replace(/\{i\}/g, String(idx))
+    .replace(/\{I(\d+)\}/g, (_, off) => String(idx + 1 + Number(off)))
+    .replace(/\{I\}/g, String(idx + 1));
+}
+
+// Initialize physical port runtime state from device template
+function initPhysicalPorts(deviceTemplate) {
+  const ports = [];
+  deviceTemplate.portGroups.forEach(group => {
+    for (let i = 0; i < group.count; i++) {
+      ports.push({
+        id: `${group.label.replace(/\s/g,'')}-${i}`,
+        name: resolvePortName(group.namePattern, i),
+        type: group.type,
+        group: group.label,
+        status: 'up',
+        description: '',
+        ipAddress: '',
+        subnet: '',
+        vlanMode: 'access',
+        vlanId: '1',
+        allowedVlans: '',
+        speed: PORT_TYPES[group.type]?.speed || 'auto',
+        duplex: 'full',
+        poeEnabled: PORT_TYPES[group.type]?.poe || false,
+        connectedTo: null,
+      });
+    }
+  });
+  return ports;
+}
+
+// Backward-compatible state migration
+function migrateState(state) {
+  if (!state || !state.nodes) return state;
+  state.nodes.forEach(node => {
+    if (node.deviceModelId && !node.physicalPorts) {
+      const devList = DEVICE_DATABASE[node.type];
+      const dev = devList && devList.find(d => d.id === node.deviceModelId);
+      if (dev) node.physicalPorts = initPhysicalPorts(dev);
+    }
+    if (!node.status) node.status = 'online';
+    if (!node.notes) node.notes = '';
+    if (!node.fields) node.fields = {};
+  });
+  state.connections.forEach(conn => {
+    if (conn.fromPort === undefined) conn.fromPort = null;
+    if (conn.toPort === undefined) conn.toPort = null;
+  });
+  return state;
+}
+
+// === STATE ===
+let S = {
+  nodes: [],
+  connections: [],
+  nextId: 1,
+  viewMode: 'physical',
+  theme: 'dark',
+};
+
+let selected = null;
+let multiSelected = [];
+let dragging = null;
+let dragOff = {x:0,y:0};
+let connecting = null;
+let tempPath = null;
+let clipboard = null;
+let undoStack = [];
+let redoStack = [];
+
+// Canvas transform
+let cam = { x: 5000, y: 3000, zoom: 1 };
+let isPanning = false;
+let panStart = {x:0,y:0};
+
+const world = document.getElementById('canvasWorld');
+const area = document.getElementById('canvasArea');
+const svg = document.getElementById('connSvg');
+
+// === BUILD SIDEBAR ===
+function buildSidebar() {
+  const el = document.getElementById('sidebarContent');
+  el.innerHTML = COMPONENTS.map(sec => `
+    <div class="sidebar-section">
+      <div class="section-title"><span class="dot" style="background:${sec.color}"></span>${sec.section}</div>
+      <div class="comp-grid">
+        ${sec.items.map(c => `
+          <div class="comp-item" draggable="true" data-type="${c.type}" data-cat="${c.cat}" data-label="${c.label}">
+            <div class="ico" style="color:${sec.color}">${ICONS[c.type] || ''}</div>
+            <div class="lbl">${c.label}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('.comp-item').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/plain', JSON.stringify({
+        type: item.dataset.type, cat: item.dataset.cat
+      }));
+    });
+  });
+}
+
+// === FILTER COMPONENTS ===
+function filterComponents(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll('.comp-item').forEach(el => {
+    const match = el.dataset.label.toLowerCase().includes(q) || el.dataset.type.includes(q);
+    el.dataset.hidden = match ? 'false' : 'true';
+  });
+}
+
+// === CANVAS TRANSFORM ===
+function updateTransform() {
+  world.style.transform = `translate(${-cam.x}px, ${-cam.y}px) scale(${cam.zoom})`;
+  document.getElementById('canvasGrid').style.backgroundPosition = `${-cam.x}px ${-cam.y}px`;
+  document.getElementById('canvasGrid').style.backgroundSize = `${20*cam.zoom}px ${20*cam.zoom}px`;
+  document.getElementById('zoomLabel').textContent = Math.round(cam.zoom * 100) + '%';
+  updateMinimap();
+}
+
+// Screen coords → world coords
+function screenToWorld(sx, sy) {
+  const r = area.getBoundingClientRect();
+  return {
+    x: (sx - r.left + cam.x) / cam.zoom,
+    y: (sy - r.top + cam.y) / cam.zoom
+  };
+}
+
+// === DRAG & DROP FROM SIDEBAR ===
+area.addEventListener('dragover', e => e.preventDefault());
+area.addEventListener('drop', e => {
+  e.preventDefault();
+  try {
+    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+    const pos = screenToWorld(e.clientX, e.clientY);
+    addNode(data.type, data.cat, pos.x, pos.y);
+  } catch(err) { console.error('Drop error:', err); }
+});
+
+// === ADD NODE ===
+// pendingDrop stores context while device selector is open
+let pendingDrop = null;
+
+function addNode(type, cat, x, y) {
+  const tmpl = COMPONENTS.flatMap(s => s.items).find(c => c.type === type);
+  if (!tmpl) return;
+  // If real-world devices exist for this type, open selector
+  if (DEVICE_DATABASE[type] && DEVICE_DATABASE[type].length > 0) {
+    pendingDrop = { type, cat, x, y, tmpl };
+    openDeviceSelector(type);
+    return;
+  }
+  placeNode(type, cat, x, y, tmpl, null);
+}
+
+function placeNode(type, cat, x, y, tmpl, deviceModelId) {
+  const id = S.nextId++;
+  const node = {
+    id, type, cat,
+    x: Math.round(x / 20) * 20,
+    y: Math.round(y / 20) * 20,
+    label: tmpl.label,
+    fields: { ...tmpl.fields },
+    status: 'online',
+    notes: '',
+    deviceModelId: deviceModelId || null,
+    physicalPorts: null,
+  };
+  if (deviceModelId) {
+    const dev = DEVICE_DATABASE[type]?.find(d => d.id === deviceModelId);
+    if (dev) {
+      node.label = `${dev.manufacturer} ${dev.model}`;
+      node.physicalPorts = initPhysicalPorts(dev);
+      if (node.fields.model !== undefined) node.fields.model = dev.model;
+      if (node.fields.ports !== undefined) node.fields.ports = String(devicePortCount(dev));
+    }
+  }
+  pushUndo();
+  S.nodes.push(node);
+  renderNode(node);
+  selectNode(id);
+  autoSave();
+}
+
+// === RENDER NODE ===
+function renderNode(node) {
+  const existing = document.getElementById('n-' + node.id);
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.className = 'node';
+  if (selected === node.id) el.classList.add('selected');
+  el.id = 'n-' + node.id;
+  el.dataset.id = node.id;
+  el.dataset.cat = node.cat;
+  el.style.left = node.x + 'px';
+  el.style.top = node.y + 'px';
+
+  const color = getCatColor(node.cat);
+  const fields = Object.entries(node.fields).filter(([,v]) => v).slice(0, 3);
+  const fieldsHtml = fields.map(([k,v]) =>
+    `<div class="node-field"><span class="k">${k.replace(/_/g,' ')}</span><span class="v">${v}</span></div>`
+  ).join('');
+
+  // Front panel thumbnail for device-model nodes
+  let fpThumbHtml = '';
+  if (node.deviceModelId) {
+    el.classList.add('has-device-model');
+    const dev = DEVICE_DATABASE[node.type]?.find(d => d.id === node.deviceModelId);
+    if (dev) {
+      fpThumbHtml = `<div class="node-fp-thumb">${renderDeviceFrontPanel(dev, 'thumbnail')}</div>`;
+    }
+  }
+
+  el.innerHTML = `
+    <div class="node-head">
+      <div class="node-ico" style="color:${color}">${ICONS[node.type] || ''}</div>
+      <span class="node-name">${node.label}</span>
+      <div class="node-status ${node.status}"></div>
+    </div>
+    ${fieldsHtml ? `<div class="node-body">${fieldsHtml}</div>` : ''}
+    ${fpThumbHtml}
+    <div class="port pt" data-side="top" data-node="${node.id}"></div>
+    <div class="port pb" data-side="bottom" data-node="${node.id}"></div>
+    <div class="port pl" data-side="left" data-node="${node.id}"></div>
+    <div class="port pr" data-side="right" data-node="${node.id}"></div>
+  `;
+
+  // Node mouse events
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('port')) return;
+    e.stopPropagation();
+    if (e.button === 2) return; // context menu handled separately
+    selectNode(node.id);
+    dragging = node;
+    const r = el.getBoundingClientRect();
+    const wr = area.getBoundingClientRect();
+    dragOff.x = e.clientX - r.left;
+    dragOff.y = e.clientY - r.top;
+  });
+
+  el.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    selectNode(node.id);
+    showCtxMenu(e.clientX, e.clientY);
+  });
+
+  // Port events
+  el.querySelectorAll('.port').forEach(port => {
+    port.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      const side = port.dataset.side;
+      const pos = getPortPos(node.id, side);
+      connecting = { nodeId: node.id, side, x: pos.x, y: pos.y };
+      tempPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      tempPath.classList.add('conn-temp');
+      svg.appendChild(tempPath);
+    });
+    port.addEventListener('mouseup', e => {
+      e.stopPropagation();
+      if (connecting && connecting.nodeId !== node.id) {
+        addConnection(connecting.nodeId, connecting.side, node.id, port.dataset.side);
+      }
+      endConnect();
+    });
+  });
+
+  world.appendChild(el);
+}
+
+function getCatColor(cat) {
+  const map = { network:'var(--accent)', compute:'var(--accent2)', storage:'var(--warn)', service:'var(--purple)', endpoint:'var(--blue)', infra:'var(--yellow)' };
+  return map[cat] || 'var(--text)';
+}
+
+// === PORT POSITIONS ===
+function getPortPos(nodeId, side) {
+  const el = document.getElementById('n-' + nodeId);
+  if (!el) return {x:0,y:0};
+  const node = S.nodes.find(n => n.id == nodeId);
+  if (!node) return {x:0,y:0};
+  const w = el.offsetWidth, h = el.offsetHeight;
+  switch(side) {
+    case 'top': return { x: node.x + w/2, y: node.y };
+    case 'bottom': return { x: node.x + w/2, y: node.y + h };
+    case 'left': return { x: node.x, y: node.y + h/2 };
+    case 'right': return { x: node.x + w, y: node.y + h/2 };
+  }
+  return { x: node.x, y: node.y };
+}
+
+// === CONNECTIONS ===
+let pendingConn = null; // for port assignment dialog
+
+function addConnection(fromId, fromSide, toId, toSide) {
+  const exists = S.connections.find(c =>
+    (c.from === fromId && c.to === toId) || (c.from === toId && c.to === fromId)
+  );
+  if (exists) return;
+
+  const fromNode = S.nodes.find(n => n.id === fromId);
+  const toNode = S.nodes.find(n => n.id === toId);
+  const hasDevicePorts = (fromNode?.physicalPorts) || (toNode?.physicalPorts);
+
+  if (hasDevicePorts) {
+    pendingConn = { fromId, fromSide, toId, toSide };
+    openPortAssign(fromNode, toNode);
+    return;
+  }
+
+  commitConnection(fromId, fromSide, toId, toSide, null, null);
+}
+
+function commitConnection(fromId, fromSide, toId, toSide, fromPort, toPort) {
+  pushUndo();
+  S.connections.push({
+    from: fromId, fromSide, to: toId, toSide,
+    fromPort: fromPort || null, toPort: toPort || null,
+    label: '', cable: 'cat6', bandwidth: ''
+  });
+  // Sync physical port state
+  if (fromPort) {
+    const fn = S.nodes.find(n => n.id === fromId);
+    const fp = fn?.physicalPorts?.find(p => p.id === fromPort);
+    if (fp) fp.connectedTo = { nodeId: toId, portId: toPort };
+  }
+  if (toPort) {
+    const tn = S.nodes.find(n => n.id === toId);
+    const tp = tn?.physicalPorts?.find(p => p.id === toPort);
+    if (tp) tp.connectedTo = { nodeId: fromId, portId: fromPort };
+  }
+  renderConnections();
+  autoSave();
+}
+
+function renderConnections() {
+  svg.innerHTML = '';
+  S.connections.forEach((conn, idx) => {
+    const p1 = getPortPos(conn.from, conn.fromSide);
+    const p2 = getPortPos(conn.to, conn.toSide);
+
+    // Bezier curve
+    const dx = Math.abs(p2.x - p1.x) * 0.4;
+    const dy = Math.abs(p2.y - p1.y) * 0.4;
+    let c1 = {...p1}, c2 = {...p2};
+    if (conn.fromSide === 'right') { c1.x += dx; }
+    else if (conn.fromSide === 'left') { c1.x -= dx; }
+    else if (conn.fromSide === 'bottom') { c1.y += dy; }
+    else { c1.y -= dy; }
+    if (conn.toSide === 'right') { c2.x += dx; }
+    else if (conn.toSide === 'left') { c2.x -= dx; }
+    else if (conn.toSide === 'bottom') { c2.y += dy; }
+    else { c2.y -= dy; }
+
+    const d = `M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+
+    const cableType = CABLE_TYPES.find(c => c.id === conn.cable);
+    if (cableType) {
+      if (cableType.style === 'fiber') path.classList.add('fiber');
+      if (cableType.style === 'wireless') path.classList.add('wireless');
+      if (cableType.color) path.style.stroke = cableType.color;
+    }
+
+    path.addEventListener('dblclick', () => editConnection(idx));
+    path.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      if (confirm('Delete this connection?')) {
+        pushUndo();
+        const delConn = S.connections[idx];
+        // Clean up physical port state
+        if (delConn.fromPort) {
+          const fn = S.nodes.find(n => n.id === delConn.from);
+          const fp = fn?.physicalPorts?.find(p => p.id === delConn.fromPort);
+          if (fp) fp.connectedTo = null;
+        }
+        if (delConn.toPort) {
+          const tn = S.nodes.find(n => n.id === delConn.to);
+          const tp = tn?.physicalPorts?.find(p => p.id === delConn.toPort);
+          if (tp) tp.connectedTo = null;
+        }
+        S.connections.splice(idx, 1);
+        renderConnections();
+        autoSave();
+      }
+    });
+    svg.appendChild(path);
+
+    // Label (include port names if assigned)
+    let portLabel = '';
+    if (conn.fromPort || conn.toPort) {
+      const fn = S.nodes.find(n => n.id === conn.from);
+      const tn = S.nodes.find(n => n.id === conn.to);
+      const fpName = fn?.physicalPorts?.find(p => p.id === conn.fromPort)?.name || '';
+      const tpName = tn?.physicalPorts?.find(p => p.id === conn.toPort)?.name || '';
+      if (fpName || tpName) portLabel = `${fpName} ↔ ${tpName}`;
+    }
+    const labelText = [portLabel, conn.label, cableType?.label].filter(Boolean).join(' · ');
+    if (labelText) {
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', (p1.x + p2.x) / 2);
+      text.setAttribute('y', (p1.y + p2.y) / 2 - 8);
+      text.setAttribute('text-anchor', 'middle');
+      text.textContent = labelText;
+      svg.appendChild(text);
+    }
+  });
+}
+
+function editConnection(idx) {
+  const conn = S.connections[idx];
+  const label = prompt('Connection label:', conn.label || '');
+  if (label !== null) conn.label = label;
+  const cableOpts = CABLE_TYPES.map((c,i) => `${i}: ${c.label} (${c.speed})`).join('\n');
+  const cIdx = prompt(`Cable type:\n${cableOpts}\n\nEnter number:`,
+    CABLE_TYPES.findIndex(c => c.id === conn.cable));
+  if (cIdx !== null && CABLE_TYPES[+cIdx]) conn.cable = CABLE_TYPES[+cIdx].id;
+  renderConnections();
+  autoSave();
+}
+
+function endConnect() {
+  connecting = null;
+  if (tempPath) { tempPath.remove(); tempPath = null; }
+}
+
+// === SELECTION ===
+function selectNode(id) {
+  deselectAll();
+  selected = id;
+  const el = document.getElementById('n-' + id);
+  if (el) el.classList.add('selected');
+  openPanel(S.nodes.find(n => n.id === id));
+}
+
+function deselectAll() {
+  document.querySelectorAll('.node.selected,.node.multi-selected').forEach(e => {
+    e.classList.remove('selected', 'multi-selected');
+  });
+  selected = null;
+  multiSelected = [];
+  closePanel();
+}
+
+// === PROPERTIES PANEL ===
+let selectedPhysicalPort = null; // currently selected port id in panel
+
+function openPanel(node) {
+  if (!node) return;
+  const panel = document.getElementById('propsPanel');
+  const body = document.getElementById('panelBody');
+  document.getElementById('panelTitle').textContent = node.label;
+  panel.classList.add('open');
+  selectedPhysicalPort = null;
+
+  let html = '';
+
+  // Interactive front panel for device-model nodes
+  if (node.deviceModelId && node.physicalPorts) {
+    const dev = DEVICE_DATABASE[node.type]?.find(d => d.id === node.deviceModelId);
+    if (dev) {
+      html += `
+        <div class="front-panel-wrap panel-full">
+          <div class="front-panel-label">${dev.manufacturer} ${dev.model} — ${dev.formFactor}</div>
+          <div id="panelFrontPanel">${renderDeviceFrontPanel(dev, 'full', node.id)}</div>
+        </div>
+        <div id="portConfigSlot"></div>
+      `;
+    }
+  }
+
+  html += `
+    <div class="fld">
+      <div class="fld-label">Name</div>
+      <input class="fld-input" value="${escHtml(node.label)}" onchange="updateNode(${node.id},'label',this.value)">
+    </div>
+    <div class="fld">
+      <div class="fld-label">Status</div>
+      <select class="fld-select" onchange="updateNode(${node.id},'status',this.value)">
+        <option value="online" ${node.status==='online'?'selected':''}>Online</option>
+        <option value="offline" ${node.status==='offline'?'selected':''}>Offline</option>
+        <option value="warning" ${node.status==='warning'?'selected':''}>Warning</option>
+      </select>
+    </div>
+    <div class="panel-divider"></div>
+  `;
+
+  Object.entries(node.fields).forEach(([key, val]) => {
+    const lbl = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    html += `
+      <div class="fld">
+        <div class="fld-label">${lbl}</div>
+        <input class="fld-input" value="${escHtml(val)}" placeholder="${lbl}..."
+          onchange="updateNodeField(${node.id},'${key}',this.value)">
+      </div>
+    `;
+  });
+
+  html += `
+    <div class="fld">
+      <div class="fld-label">Notes</div>
+      <textarea class="fld-input" placeholder="Notes..." onchange="updateNode(${node.id},'notes',this.value)">${escHtml(node.notes||'')}</textarea>
+    </div>
+    <div class="panel-divider"></div>
+    <div class="fld-row">
+      <div class="fld"><div class="fld-label">X</div><input class="fld-input" type="number" value="${node.x}" onchange="updateNode(${node.id},'x',+this.value)"></div>
+      <div class="fld"><div class="fld-label">Y</div><input class="fld-input" type="number" value="${node.y}" onchange="updateNode(${node.id},'y',+this.value)"></div>
+    </div>
+  `;
+
+  // Change model button for device-model nodes
+  if (node.deviceModelId) {
+    html += `
+      <div class="panel-divider"></div>
+      <button class="btn btn-full" onclick="changeDeviceModel(${node.id})">📦 Change Model</button>
+    `;
+  }
+
+  html += `
+    <div class="panel-divider"></div>
+    <button class="btn btn-danger btn-full" onclick="deleteNode(${node.id})">🗑 Delete Node</button>
+  `;
+
+  body.innerHTML = html;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function closePanel() {
+  document.getElementById('propsPanel').classList.remove('open');
+}
+
+function updateNode(id, field, value) {
+  pushUndo();
+  const node = S.nodes.find(n => n.id === id);
+  if (!node) return;
+  node[field] = value;
+  renderNode(node);
+  renderConnections();
+  autoSave();
+}
+
+function updateNodeField(id, key, value) {
+  pushUndo();
+  const node = S.nodes.find(n => n.id === id);
+  if (!node) return;
+  node.fields[key] = value;
+  renderNode(node);
+  renderConnections();
+  autoSave();
+}
+
+function deleteNode(id) {
+  pushUndo();
+  // Clean up physical port references on connected nodes
+  S.connections.filter(c => c.from === id || c.to === id).forEach(conn => {
+    const otherId = conn.from === id ? conn.to : conn.from;
+    const otherPortId = conn.from === id ? conn.toPort : conn.fromPort;
+    if (otherPortId) {
+      const otherNode = S.nodes.find(n => n.id === otherId);
+      const otherPort = otherNode?.physicalPorts?.find(p => p.id === otherPortId);
+      if (otherPort) otherPort.connectedTo = null;
+    }
+  });
+  const el = document.getElementById('n-' + id);
+  if (el) el.remove();
+  S.nodes = S.nodes.filter(n => n.id !== id);
+  S.connections = S.connections.filter(c => c.from !== id && c.to !== id);
+  renderConnections();
+  closePanel();
+  selected = null;
+  autoSave();
+}
+
+// === MOUSE EVENTS (Pan, Drag, Connect) ===
+area.addEventListener('mousedown', e => {
+  if (e.target === area || e.target.id === 'canvasGrid' || e.target.id === 'canvasWorld') {
+    if (e.button === 0) {
+      // Start panning
+      isPanning = true;
+      panStart.x = e.clientX + cam.x;
+      panStart.y = e.clientY + cam.y;
+      area.classList.add('panning');
+      deselectAll();
+    }
+  }
+});
+
+document.addEventListener('mousemove', e => {
+  if (isPanning) {
+    cam.x = panStart.x - e.clientX;
+    cam.y = panStart.y - e.clientY;
+    updateTransform();
+  }
+
+  if (dragging) {
+    const pos = screenToWorld(e.clientX - dragOff.x, e.clientY - dragOff.y);
+    dragging.x = Math.round(pos.x / 10) * 10;
+    dragging.y = Math.round(pos.y / 10) * 10;
+    const el = document.getElementById('n-' + dragging.id);
+    if (el) { el.style.left = dragging.x + 'px'; el.style.top = dragging.y + 'px'; }
+    renderConnections();
+  }
+
+  if (connecting && tempPath) {
+    const pos = screenToWorld(e.clientX, e.clientY);
+    const p1 = connecting;
+    const dx = Math.abs(pos.x - p1.x) * 0.4;
+    const dy = Math.abs(pos.y - p1.y) * 0.4;
+    let c1x = p1.x, c1y = p1.y;
+    if (p1.side === 'right') c1x += dx;
+    else if (p1.side === 'left') c1x -= dx;
+    else if (p1.side === 'bottom') c1y += dy;
+    else c1y -= dy;
+    const d = `M${p1.x},${p1.y} C${c1x},${c1y} ${pos.x},${pos.y} ${pos.x},${pos.y}`;
+    tempPath.setAttribute('d', d);
+  }
+});
+
+document.addEventListener('mouseup', e => {
+  if (isPanning) { isPanning = false; area.classList.remove('panning'); }
+  if (dragging) { dragging = null; autoSave(); }
+  endConnect();
+});
+
+// === SCROLL ZOOM ===
+area.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -0.08 : 0.08;
+  const newZoom = Math.max(0.15, Math.min(3, cam.zoom + delta));
+
+  // Zoom toward cursor
+  const pos = screenToWorld(e.clientX, e.clientY);
+  cam.zoom = newZoom;
+  const r = area.getBoundingClientRect();
+  cam.x = pos.x * cam.zoom - (e.clientX - r.left);
+  cam.y = pos.y * cam.zoom - (e.clientY - r.top);
+
+  updateTransform();
+}, { passive: false });
+
+// === ZOOM FUNCTIONS ===
+function zoomIn() { cam.zoom = Math.min(3, cam.zoom + 0.15); updateTransform(); }
+function zoomOut() { cam.zoom = Math.max(0.15, cam.zoom - 0.15); updateTransform(); }
+function zoomReset() { cam.zoom = 1; cam.x = 5000; cam.y = 3000; updateTransform(); }
+function zoomFit() {
+  if (S.nodes.length === 0) { zoomReset(); return; }
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  S.nodes.forEach(n => {
+    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 180); maxY = Math.max(maxY, n.y + 100);
+  });
+  const r = area.getBoundingClientRect();
+  const pad = 80;
+  const w = maxX - minX + pad*2, h = maxY - minY + pad*2;
+  cam.zoom = Math.min(2, Math.min(r.width / w, r.height / h));
+  cam.x = (minX - pad) * cam.zoom;
+  cam.y = (minY - pad) * cam.zoom;
+  updateTransform();
+}
+
+// === MINIMAP ===
+function updateMinimap() {
+  const mc = document.getElementById('minimapCanvas');
+  const ctx = mc.getContext('2d');
+  ctx.clearRect(0, 0, 160, 110);
+
+  if (S.nodes.length === 0) return;
+
+  let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+  S.nodes.forEach(n => {
+    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + 140); maxY = Math.max(maxY, n.y + 60);
+  });
+
+  const pad = 100;
+  const ww = (maxX - minX + pad*2) || 1;
+  const wh = (maxY - minY + pad*2) || 1;
+  const scale = Math.min(160 / ww, 110 / wh);
+
+  // Draw nodes
+  S.nodes.forEach(n => {
+    const x = (n.x - minX + pad) * scale;
+    const y = (n.y - minY + pad) * scale;
+    ctx.fillStyle = n.id === selected ? '#00d4ff' : '#445566';
+    ctx.fillRect(x, y, Math.max(4, 140*scale), Math.max(3, 40*scale));
+  });
+
+  // Draw connections
+  ctx.strokeStyle = 'rgba(0,212,255,0.3)';
+  ctx.lineWidth = 1;
+  S.connections.forEach(c => {
+    const n1 = S.nodes.find(n => n.id === c.from);
+    const n2 = S.nodes.find(n => n.id === c.to);
+    if (!n1 || !n2) return;
+    ctx.beginPath();
+    ctx.moveTo((n1.x+70-minX+pad)*scale, (n1.y+30-minY+pad)*scale);
+    ctx.lineTo((n2.x+70-minX+pad)*scale, (n2.y+30-minY+pad)*scale);
+    ctx.stroke();
+  });
+
+  // Viewport rectangle
+  const ar = area.getBoundingClientRect();
+  const vp = document.getElementById('minimapVP');
+  const vx = (cam.x/cam.zoom - minX + pad) * scale;
+  const vy = (cam.y/cam.zoom - minY + pad) * scale;
+  const vw = (ar.width/cam.zoom) * scale;
+  const vh = (ar.height/cam.zoom) * scale;
+  vp.style.left = Math.max(0, vx) + 'px';
+  vp.style.top = Math.max(0, vy) + 'px';
+  vp.style.width = Math.min(160, vw) + 'px';
+  vp.style.height = Math.min(110, vh) + 'px';
+}
+
+// === CONTEXT MENU ===
+function showCtxMenu(x, y) {
+  const menu = document.getElementById('ctxMenu');
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+  menu.classList.add('open');
+}
+document.addEventListener('click', () => document.getElementById('ctxMenu').classList.remove('open'));
+
+function ctxAction(action) {
+  document.getElementById('ctxMenu').classList.remove('open');
+  if (!selected) return;
+  const node = S.nodes.find(n => n.id === selected);
+  if (!node) return;
+
+  if (action === 'delete') deleteNode(node.id);
+  if (action === 'duplicate') {
+    const clone = JSON.parse(JSON.stringify(node));
+    clone.id = S.nextId++;
+    clone.x += 30; clone.y += 30;
+    pushUndo();
+    S.nodes.push(clone);
+    renderNode(clone);
+    selectNode(clone.id);
+    autoSave();
+  }
+  if (action === 'copy') clipboard = JSON.parse(JSON.stringify(node));
+}
+
+// === UNDO / REDO ===
+function pushUndo() {
+  undoStack.push(JSON.stringify(S));
+  if (undoStack.length > 50) undoStack.shift();
+  redoStack = [];
+}
+function undo() {
+  if (undoStack.length === 0) return;
+  redoStack.push(JSON.stringify(S));
+  const state = JSON.parse(undoStack.pop());
+  loadState(state);
+  toast('Undo', 'success');
+}
+function redo() {
+  if (redoStack.length === 0) return;
+  undoStack.push(JSON.stringify(S));
+  const state = JSON.parse(redoStack.pop());
+  loadState(state);
+  toast('Redo', 'success');
+}
+function loadState(state) {
+  S = migrateState(state);
+  world.querySelectorAll('.node').forEach(n => n.remove());
+  S.nodes.forEach(n => renderNode(n));
+  renderConnections();
+  selected = null;
+  closePanel();
+}
+
+// === AUTO LAYOUT ===
+function autoLayout() {
+  if (S.nodes.length === 0) return;
+  pushUndo();
+
+  // Group by category
+  const groups = {};
+  S.nodes.forEach(n => { if (!groups[n.cat]) groups[n.cat] = []; groups[n.cat].push(n); });
+
+  let gx = 5100, gy = 3050;
+  const catOrder = ['infra','network','compute','service','storage','endpoint'];
+
+  catOrder.forEach(cat => {
+    const items = groups[cat];
+    if (!items) return;
+    items.forEach((n, i) => {
+      n.x = gx + (i % 4) * 200;
+      n.y = gy + Math.floor(i / 4) * 120;
+    });
+    gy += Math.ceil(items.length / 4) * 120 + 60;
+  });
+
+  // Re-render
+  S.nodes.forEach(n => {
+    const el = document.getElementById('n-' + n.id);
+    if (el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+  });
+  renderConnections();
+  zoomFit();
+  toast('Auto-layout applied', 'success');
+  autoSave();
+}
+
+// === IP CALCULATOR ===
+function openIPCalc() { document.getElementById('ipCalcModal').classList.add('open'); calcSubnet(); }
+function closeIPCalc() { document.getElementById('ipCalcModal').classList.remove('open'); }
+
+function calcSubnet() {
+  const ipStr = document.getElementById('ipCalcAddr').value.trim();
+  const cidr = parseInt(document.getElementById('ipCalcCIDR').value) || 0;
+
+  const parts = ipStr.split('.').map(Number);
+  if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return;
+
+  const ip = (parts[0]<<24 | parts[1]<<16 | parts[2]<<8 | parts[3]) >>> 0;
+  const mask = cidr === 0 ? 0 : (~0 << (32 - cidr)) >>> 0;
+  const net = (ip & mask) >>> 0;
+  const bcast = (net | ~mask) >>> 0;
+  const first = cidr >= 31 ? net : (net + 1) >>> 0;
+  const last = cidr >= 31 ? bcast : (bcast - 1) >>> 0;
+  const hosts = cidr >= 31 ? (cidr === 32 ? 1 : 2) : Math.pow(2, 32 - cidr) - 2;
+  const wild = (~mask) >>> 0;
+
+  const toIP = n => [(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255].join('.');
+  const toBin = n => {
+    let s = n.toString(2).padStart(32, '0');
+    return s.slice(0,8)+'.'+s.slice(8,16)+'.'+s.slice(16,24)+'.'+s.slice(24);
+  };
+
+  let ipClass = 'A';
+  if (parts[0] >= 128 && parts[0] <= 191) ipClass = 'B';
+  else if (parts[0] >= 192 && parts[0] <= 223) ipClass = 'C';
+  else if (parts[0] >= 224 && parts[0] <= 239) ipClass = 'D (Multicast)';
+  else if (parts[0] >= 240) ipClass = 'E (Reserved)';
+
+  document.getElementById('ipCalcMask').value = toIP(mask);
+  document.getElementById('iprNet').textContent = toIP(net) + '/' + cidr;
+  document.getElementById('iprBcast').textContent = toIP(bcast);
+  document.getElementById('iprFirst').textContent = toIP(first);
+  document.getElementById('iprLast').textContent = toIP(last);
+  document.getElementById('iprHosts').textContent = hosts.toLocaleString();
+  document.getElementById('iprWild').textContent = toIP(wild);
+  document.getElementById('iprClass').textContent = 'Class ' + ipClass;
+  document.getElementById('iprBin').textContent = toBin(mask);
+}
+
+// === THEME ===
+function toggleTheme() {
+  S.theme = S.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = S.theme;
+  document.getElementById('themeBtn').textContent = S.theme === 'dark' ? '🌙 Theme' : '☀️ Theme';
+  autoSave();
+}
+
+// ============================================
+// DEVICE FRONT PANEL SVG RENDERER
+// ============================================
+function renderDeviceFrontPanel(device, mode, nodeId) {
+  // Calculate SVG dimensions from port groups
+  let maxX = 0;
+  device.portGroups.forEach(g => {
+    const pt = PORT_TYPES[g.type];
+    const endX = g.startX + (g.count - 1) * (g.spacing || (pt.w + 4)) + pt.w;
+    if (endX > maxX) maxX = endX;
+  });
+  const svgW = Math.max(maxX + 16, 80);
+  const svgH = 28;
+  const scale = mode === 'thumbnail' ? Math.min(150 / svgW, 1) : Math.min(260 / svgW, 2);
+  const displayW = svgW * scale;
+  const displayH = svgH * scale;
+
+  let svgParts = [];
+  svgParts.push(`<svg class="fp-svg" width="${displayW}" height="${displayH}" viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">`);
+  // Chassis
+  svgParts.push(`<rect class="fp-chassis" x="0.5" y="0.5" width="${svgW-1}" height="${svgH-1}" rx="3"/>`);
+
+  // Power LED
+  svgParts.push(`<circle class="fp-led" cx="8" cy="${svgH/2}" r="2" fill="#4CAF50" opacity="0.8"/>`);
+
+  let portIndex = 0;
+  device.portGroups.forEach(group => {
+    const pt = PORT_TYPES[group.type];
+    const spacing = group.spacing || (pt.w + 4);
+
+    // Group label (only in full mode)
+    if (mode === 'full' && group.count > 1) {
+      const groupCenterX = group.startX + ((group.count - 1) * spacing) / 2;
+      svgParts.push(`<text class="fp-group-label" x="${groupCenterX}" y="5.5">${group.label}</text>`);
+    }
+
+    for (let i = 0; i < group.count; i++) {
+      const px = group.startX + i * spacing;
+      const py = group.startY || svgH / 2 - pt.h / 2;
+      const portId = `${group.label.replace(/\s/g,'')}-${i}`;
+      const portName = resolvePortName(group.namePattern, i);
+      const interactive = mode === 'full' && nodeId;
+
+      // Determine fill based on connection status
+      let fillOpacity = '0.7';
+      let strokeColor = pt.color;
+      if (nodeId) {
+        const node = S.nodes.find(n => n.id === nodeId);
+        const pp = node?.physicalPorts?.find(p => p.id === portId);
+        if (pp?.connectedTo) fillOpacity = '1';
+        if (pp?.status === 'down') { fillOpacity = '0.25'; strokeColor = '#666'; }
+        if (pp?.status === 'disabled') { fillOpacity = '0.15'; strokeColor = '#444'; }
+      }
+
+      if (pt.shape === 'circle') {
+        svgParts.push(`<circle class="fp-port${interactive ? '' : ''}" cx="${px + pt.w/2}" cy="${py + pt.h/2}" r="${pt.w/2}" fill="${pt.color}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="1" data-port-id="${portId}" data-port-name="${portName}"${interactive ? ` onclick="selectPhysicalPort(${nodeId},'${portId}')" style="cursor:pointer"` : ''}/>`);
+      } else {
+        svgParts.push(`<rect class="fp-port" x="${px}" y="${py}" width="${pt.w}" height="${pt.h}" rx="1.5" fill="${pt.color}" fill-opacity="${fillOpacity}" stroke="${strokeColor}" stroke-width="1" data-port-id="${portId}" data-port-name="${portName}"${interactive ? ` onclick="selectPhysicalPort(${nodeId},'${portId}')" style="cursor:pointer"` : ''}/>`);
+      }
+
+      // Port label in full mode
+      if (mode === 'full') {
+        svgParts.push(`<text class="fp-port-label" x="${px + pt.w/2}" y="${py + pt.h + 5}">${portName.length > 6 ? portName.slice(0,6) : portName}</text>`);
+      }
+
+      portIndex++;
+    }
+  });
+
+  svgParts.push('</svg>');
+  return svgParts.join('');
+}
+
+// ============================================
+// DEVICE SELECTOR MODAL
+// ============================================
+let dsActiveFilters = new Set();
+
+function openDeviceSelector(type) {
+  const overlay = document.getElementById('deviceSelectorOverlay');
+  const devices = DEVICE_DATABASE[type] || [];
+  if (devices.length === 0) return;
+
+  // Build brand filters
+  const brands = [...new Set(devices.map(d => d.manufacturer))].sort();
+  dsActiveFilters.clear();
+  const filtersEl = document.getElementById('dsFilters');
+  filtersEl.innerHTML = brands.map(b =>
+    `<button class="ds-filter" data-brand="${b}" onclick="toggleDSFilter(this,'${b}')">${b}</button>`
+  ).join('');
+
+  document.getElementById('dsSearch').value = '';
+  renderDeviceSelectorGrid(type);
+  overlay.classList.add('open');
+}
+
+function closeDeviceSelector() {
+  document.getElementById('deviceSelectorOverlay').classList.remove('open');
+  pendingDrop = null;
+}
+
+function selectGenericDevice() {
+  if (!pendingDrop) return;
+  const { type, cat, x, y, tmpl } = pendingDrop;
+  pendingDrop = null;
+  closeDeviceSelector();
+  placeNode(type, cat, x, y, tmpl, null);
+}
+
+function selectDeviceModel(modelId) {
+  if (!pendingDrop) return;
+  const { type, cat, x, y, tmpl, replaceNodeId } = pendingDrop;
+  pendingDrop = null;
+  document.getElementById('deviceSelectorOverlay').classList.remove('open');
+
+  if (replaceNodeId) {
+    // Changing model on existing node
+    pushUndo();
+    const node = S.nodes.find(n => n.id === replaceNodeId);
+    if (node) {
+      const dev = DEVICE_DATABASE[type]?.find(d => d.id === modelId);
+      if (dev) {
+        node.deviceModelId = modelId;
+        node.label = `${dev.manufacturer} ${dev.model}`;
+        node.physicalPorts = initPhysicalPorts(dev);
+        if (node.fields.model !== undefined) node.fields.model = dev.model;
+        if (node.fields.ports !== undefined) node.fields.ports = String(devicePortCount(dev));
+        // Clear port assignments on connections to this node
+        S.connections.filter(c => c.from === replaceNodeId || c.to === replaceNodeId).forEach(conn => {
+          if (conn.from === replaceNodeId) conn.fromPort = null;
+          if (conn.to === replaceNodeId) conn.toPort = null;
+        });
+        renderNode(node);
+        renderConnections();
+        selectNode(node.id);
+        autoSave();
+      }
+    }
+  } else {
+    placeNode(type, cat, x, y, tmpl, modelId);
+  }
+}
+
+function toggleDSFilter(btn, brand) {
+  if (dsActiveFilters.has(brand)) {
+    dsActiveFilters.delete(brand);
+    btn.classList.remove('active');
+  } else {
+    dsActiveFilters.add(brand);
+    btn.classList.add('active');
+  }
+  filterDeviceSelector();
+}
+
+function filterDeviceSelector() {
+  if (!pendingDrop) return;
+  renderDeviceSelectorGrid(pendingDrop.type);
+}
+
+function renderDeviceSelectorGrid(type) {
+  const devices = DEVICE_DATABASE[type] || [];
+  const q = document.getElementById('dsSearch').value.toLowerCase();
+  const grid = document.getElementById('dsGrid');
+
+  const filtered = devices.filter(d => {
+    if (dsActiveFilters.size > 0 && !dsActiveFilters.has(d.manufacturer)) return false;
+    if (q) {
+      const text = `${d.manufacturer} ${d.model} ${d.specs}`.toLowerCase();
+      if (!text.includes(q)) return false;
+    }
+    return true;
+  });
+
+  grid.innerHTML = filtered.map(d => {
+    const totalPorts = devicePortCount(d);
+    const miniSvg = renderDeviceFrontPanel(d, 'thumbnail');
+    return `
+      <div class="ds-card" onclick="selectDeviceModel('${d.id}')">
+        <div class="ds-card-brand">${d.manufacturer}</div>
+        <div class="ds-card-model">${d.model}</div>
+        <div class="ds-card-preview">${miniSvg}</div>
+        <div class="ds-card-specs">
+          <span>${totalPorts}</span> ports · ${d.formFactor}<br>
+          ${d.specs}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('dsInfo').textContent = `${filtered.length} of ${devices.length} devices`;
+}
+
+// ============================================
+// PORT CONFIGURATION (in properties panel)
+// ============================================
+function selectPhysicalPort(nodeId, portId) {
+  const node = S.nodes.find(n => n.id === nodeId);
+  if (!node || !node.physicalPorts) return;
+  const port = node.physicalPorts.find(p => p.id === portId);
+  if (!port) return;
+
+  selectedPhysicalPort = portId;
+
+  // Highlight the selected port in the SVG
+  document.querySelectorAll('#panelFrontPanel .fp-port').forEach(el => {
+    el.classList.toggle('fp-port-selected', el.dataset.portId === portId);
+  });
+
+  // Render port config form
+  const slot = document.getElementById('portConfigSlot');
+  if (!slot) return;
+
+  const connInfo = port.connectedTo
+    ? (() => {
+        const cn = S.nodes.find(n => n.id === port.connectedTo.nodeId);
+        const cp = cn?.physicalPorts?.find(p => p.id === port.connectedTo.portId);
+        return `Connected to: ${cn?.label || '?'} → ${cp?.name || '?'}`;
+      })()
+    : 'Not connected';
+
+  const pt = PORT_TYPES[port.type];
+
+  slot.innerHTML = `
+    <div class="port-config">
+      <div class="port-config-header">
+        <div class="port-config-title">${port.name} (${pt?.label || port.type})</div>
+        <button class="port-config-close" onclick="closePortConfig()">✕</button>
+      </div>
+      <div class="pc-row">
+        <div class="fld">
+          <div class="fld-label">Status</div>
+          <select class="fld-select" onchange="updatePhysPort(${nodeId},'${portId}','status',this.value)">
+            <option value="up" ${port.status==='up'?'selected':''}>Up</option>
+            <option value="down" ${port.status==='down'?'selected':''}>Down</option>
+            <option value="disabled" ${port.status==='disabled'?'selected':''}>Disabled</option>
+          </select>
+        </div>
+        <div class="fld">
+          <div class="fld-label">Speed</div>
+          <select class="fld-select" onchange="updatePhysPort(${nodeId},'${portId}','speed',this.value)">
+            <option value="auto" ${port.speed==='auto'?'selected':''}>Auto</option>
+            <option value="10 Mbps" ${port.speed==='10 Mbps'?'selected':''}>10 Mbps</option>
+            <option value="100 Mbps" ${port.speed==='100 Mbps'?'selected':''}>100 Mbps</option>
+            <option value="1 Gbps" ${port.speed==='1 Gbps'?'selected':''}>1 Gbps</option>
+            <option value="2.5 Gbps" ${port.speed==='2.5 Gbps'?'selected':''}>2.5 Gbps</option>
+            <option value="10 Gbps" ${port.speed==='10 Gbps'?'selected':''}>10 Gbps</option>
+            <option value="25 Gbps" ${port.speed==='25 Gbps'?'selected':''}>25 Gbps</option>
+          </select>
+        </div>
+      </div>
+      <div class="fld">
+        <div class="fld-label">Description</div>
+        <input class="fld-input" value="${escHtml(port.description)}" placeholder="Port description..."
+          onchange="updatePhysPort(${nodeId},'${portId}','description',this.value)">
+      </div>
+      <div class="pc-row">
+        <div class="fld">
+          <div class="fld-label">IP Address</div>
+          <input class="fld-input" value="${escHtml(port.ipAddress)}" placeholder="10.0.0.1"
+            onchange="updatePhysPort(${nodeId},'${portId}','ipAddress',this.value)">
+        </div>
+        <div class="fld">
+          <div class="fld-label">Subnet</div>
+          <input class="fld-input" value="${escHtml(port.subnet)}" placeholder="/24"
+            onchange="updatePhysPort(${nodeId},'${portId}','subnet',this.value)">
+        </div>
+      </div>
+      <div class="pc-row">
+        <div class="fld">
+          <div class="fld-label">VLAN Mode</div>
+          <select class="fld-select" onchange="updatePhysPort(${nodeId},'${portId}','vlanMode',this.value)">
+            <option value="access" ${port.vlanMode==='access'?'selected':''}>Access</option>
+            <option value="trunk" ${port.vlanMode==='trunk'?'selected':''}>Trunk</option>
+          </select>
+        </div>
+        <div class="fld">
+          <div class="fld-label">${port.vlanMode === 'trunk' ? 'Allowed VLANs' : 'VLAN ID'}</div>
+          <input class="fld-input" value="${escHtml(port.vlanMode === 'trunk' ? port.allowedVlans : port.vlanId)}"
+            placeholder="${port.vlanMode === 'trunk' ? '1,10,20' : '1'}"
+            onchange="updatePhysPort(${nodeId},'${portId}','${port.vlanMode==='trunk'?'allowedVlans':'vlanId'}',this.value)">
+        </div>
+      </div>
+      <div class="pc-row">
+        <div class="fld">
+          <div class="fld-label">Duplex</div>
+          <select class="fld-select" onchange="updatePhysPort(${nodeId},'${portId}','duplex',this.value)">
+            <option value="full" ${port.duplex==='full'?'selected':''}>Full</option>
+            <option value="half" ${port.duplex==='half'?'selected':''}>Half</option>
+            <option value="auto" ${port.duplex==='auto'?'selected':''}>Auto</option>
+          </select>
+        </div>
+        ${pt?.poe ? `
+        <div class="fld">
+          <div class="pc-toggle">
+            <input type="checkbox" ${port.poeEnabled ? 'checked' : ''}
+              onchange="updatePhysPort(${nodeId},'${portId}','poeEnabled',this.checked)">
+            PoE Enabled
+          </div>
+        </div>` : '<div class="fld"></div>'}
+      </div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:4px;">
+        ${connInfo}
+      </div>
+    </div>
+  `;
+}
+
+function closePortConfig() {
+  selectedPhysicalPort = null;
+  const slot = document.getElementById('portConfigSlot');
+  if (slot) slot.innerHTML = '';
+  document.querySelectorAll('#panelFrontPanel .fp-port').forEach(el => {
+    el.classList.remove('fp-port-selected');
+  });
+}
+
+function updatePhysPort(nodeId, portId, field, value) {
+  const node = S.nodes.find(n => n.id === nodeId);
+  if (!node || !node.physicalPorts) return;
+  const port = node.physicalPorts.find(p => p.id === portId);
+  if (!port) return;
+  port[field] = value;
+  autoSave();
+  // Re-render front panel in properties panel to update port colors
+  if (field === 'status') {
+    const dev = DEVICE_DATABASE[node.type]?.find(d => d.id === node.deviceModelId);
+    if (dev) {
+      const fpEl = document.getElementById('panelFrontPanel');
+      if (fpEl) fpEl.innerHTML = renderDeviceFrontPanel(dev, 'full', nodeId);
+    }
+    renderNode(node);
+    renderConnections();
+  }
+}
+
+function changeDeviceModel(nodeId) {
+  const node = S.nodes.find(n => n.id === nodeId);
+  if (!node) return;
+  const tmpl = COMPONENTS.flatMap(s => s.items).find(c => c.type === node.type);
+  if (!tmpl) return;
+  pendingDrop = {
+    type: node.type, cat: node.cat,
+    x: node.x, y: node.y, tmpl,
+    replaceNodeId: nodeId,
+  };
+  openDeviceSelector(node.type);
+}
+
+// ============================================
+// PORT ASSIGNMENT DIALOG
+// ============================================
+let paFromPort = null;
+let paToPort = null;
+
+function openPortAssign(fromNode, toNode) {
+  paFromPort = null;
+  paToPort = null;
+  const body = document.getElementById('paBody');
+  let html = '';
+
+  // From side
+  if (fromNode?.physicalPorts) {
+    html += `<div class="pa-side">
+      <div class="pa-side-label">${escHtml(fromNode.label)}</div>
+      <div class="pa-port-grid">`;
+    fromNode.physicalPorts.forEach(p => {
+      const occupied = p.connectedTo ? 'occupied' : '';
+      const pt = PORT_TYPES[p.type];
+      html += `<button class="pa-port-btn ${occupied}" data-side="from" data-port="${p.id}"
+        onclick="selectAssignPort('from','${p.id}',this)" ${occupied ? 'disabled' : ''}>
+        ${p.name} <span style="color:${pt?.color||'#888'};font-size:8px">(${pt?.label||''})</span>
+      </button>`;
+    });
+    html += '</div></div>';
+  }
+
+  // To side
+  if (toNode?.physicalPorts) {
+    html += `<div class="pa-side">
+      <div class="pa-side-label">${escHtml(toNode.label)}</div>
+      <div class="pa-port-grid">`;
+    toNode.physicalPorts.forEach(p => {
+      const occupied = p.connectedTo ? 'occupied' : '';
+      const pt = PORT_TYPES[p.type];
+      html += `<button class="pa-port-btn ${occupied}" data-side="to" data-port="${p.id}"
+        onclick="selectAssignPort('to','${p.id}',this)" ${occupied ? 'disabled' : ''}>
+        ${p.name} <span style="color:${pt?.color||'#888'};font-size:8px">(${pt?.label||''})</span>
+      </button>`;
+    });
+    html += '</div></div>';
+  }
+
+  body.innerHTML = html;
+  document.getElementById('portAssignOverlay').classList.add('open');
+}
+
+function selectAssignPort(side, portId, btn) {
+  // Deselect others on same side
+  btn.parentElement.querySelectorAll('.pa-port-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  if (side === 'from') paFromPort = portId;
+  else paToPort = portId;
+}
+
+function confirmPortAssign() {
+  if (!pendingConn) return;
+  const { fromId, fromSide, toId, toSide } = pendingConn;
+  pendingConn = null;
+  closePortAssign();
+  commitConnection(fromId, fromSide, toId, toSide, paFromPort, paToPort);
+}
+
+function closePortAssign() {
+  document.getElementById('portAssignOverlay').classList.remove('open');
+  if (pendingConn) {
+    // User skipped — create connection without port assignment
+    const { fromId, fromSide, toId, toSide } = pendingConn;
+    pendingConn = null;
+    commitConnection(fromId, fromSide, toId, toSide, null, null);
+  }
+}
+
+// === VIEW MODES ===
+function switchView(mode) {
+  S.viewMode = mode;
+  document.querySelectorAll('.view-tab').forEach(t => t.classList.toggle('active', t.dataset.view === mode));
+  // Could show/hide different info on nodes per view
+  toast(`${mode.charAt(0).toUpperCase()+mode.slice(1)} view`, 'success');
+}
+
+// === EXPORT / IMPORT ===
+function exportJSON() {
+  const data = JSON.stringify(S, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'netlab-diagram-' + new Date().toISOString().split('T')[0] + '.json';
+  a.click();
+  toast('Diagram saved!', 'success');
+}
+
+function importJSON() { document.getElementById('fileImport').click(); }
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = migrateState(JSON.parse(ev.target.result));
+      loadState(data);
+      toast('Diagram loaded!', 'success');
+    } catch { toast('Invalid file', 'error'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// PNG Export
+function exportPNG() {
+  toast('Preparing PNG...', 'success');
+  setTimeout(() => {
+    const c = document.createElement('canvas');
+    if (S.nodes.length === 0) { toast('No nodes to export', 'error'); return; }
+
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    S.nodes.forEach(n => {
+      minX=Math.min(minX,n.x); minY=Math.min(minY,n.y);
+      maxX=Math.max(maxX,n.x+180); maxY=Math.max(maxY,n.y+100);
+    });
+    const pad=60;
+    c.width=(maxX-minX+pad*2)*2; c.height=(maxY-minY+pad*2)*2;
+    const ctx=c.getContext('2d');
+    ctx.scale(2,2);
+    ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-0').trim() || '#06080c';
+    ctx.fillRect(0,0,c.width,c.height);
+
+    // Draw connections
+    ctx.strokeStyle = '#00d4ff55';
+    ctx.lineWidth = 2;
+    S.connections.forEach(conn => {
+      const n1=S.nodes.find(n=>n.id===conn.from);
+      const n2=S.nodes.find(n=>n.id===conn.to);
+      if(!n1||!n2)return;
+      ctx.beginPath();
+      ctx.moveTo(n1.x+70-minX+pad, n1.y+30-minY+pad);
+      ctx.lineTo(n2.x+70-minX+pad, n2.y+30-minY+pad);
+      ctx.stroke();
+    });
+
+    // Draw nodes
+    S.nodes.forEach(n => {
+      const x=n.x-minX+pad, y=n.y-minY+pad;
+      ctx.fillStyle='#1a2332'; ctx.strokeStyle='#1c2736'; ctx.lineWidth=1.5;
+      roundRect(ctx, x, y, 140, 55, 8);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#e4edf6'; ctx.font='bold 11px IBM Plex Mono';
+      ctx.fillText(n.label, x+30, y+18);
+      ctx.fillStyle='#00d4ff'; ctx.font='10px IBM Plex Mono';
+      const ip = n.fields.ip || n.fields.public_ip || '';
+      if(ip) ctx.fillText(ip, x+30, y+35);
+    });
+
+    // Watermark
+    ctx.fillStyle='#33445566'; ctx.font='10px IBM Plex Mono';
+    ctx.fillText('NetLab Architect', 10, c.height/2 - 5);
+
+    c.toBlob(blob => {
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='netlab-diagram.png'; a.click();
+      toast('PNG exported!', 'success');
+    });
+  }, 100);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+// PDF Export
+function exportPDF() {
+  toast('PDF export: Use browser Print (Ctrl+P) → Save as PDF', 'success');
+  window.print();
+}
+
+// === AUTO SAVE ===
+function autoSave() {
+  try { localStorage.setItem('netlab_diagram', JSON.stringify(S)); } catch(e) {}
+}
+function autoLoad() {
+  try {
+    const data = localStorage.getItem('netlab_diagram');
+    if (data) {
+      const parsed = migrateState(JSON.parse(data));
+      S = parsed;
+      document.documentElement.dataset.theme = S.theme || 'dark';
+      document.getElementById('themeBtn').textContent = S.theme === 'light' ? '☀️ Theme' : '🌙 Theme';
+      S.nodes.forEach(n => renderNode(n));
+      renderConnections();
+      if (S.nodes.length > 0) setTimeout(zoomFit, 200);
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+// === TOAST ===
+function toast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.textContent = (type === 'success' ? '✓ ' : '✗ ') + msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+// === KEYBOARD SHORTCUTS ===
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selected) deleteNode(selected);
+  }
+  if (e.key === 'Escape') {
+    deselectAll(); endConnect(); closeIPCalc();
+    document.getElementById('deviceSelectorOverlay').classList.remove('open');
+    document.getElementById('portAssignOverlay').classList.remove('open');
+    pendingDrop = null; pendingConn = null;
+  }
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 'z') { e.preventDefault(); undo(); }
+    if (e.key === 'y') { e.preventDefault(); redo(); }
+    if (e.key === 's') { e.preventDefault(); exportJSON(); }
+    if (e.key === 'd' && selected) {
+      e.preventDefault();
+      ctxAction('duplicate');
+    }
+    if (e.key === 'c' && selected) {
+      clipboard = JSON.parse(JSON.stringify(S.nodes.find(n => n.id === selected)));
+    }
+    if (e.key === 'v' && clipboard) {
+      e.preventDefault();
+      const clone = { ...clipboard, id: S.nextId++, x: clipboard.x + 40, y: clipboard.y + 40 };
+      pushUndo();
+      S.nodes.push(clone);
+      renderNode(clone);
+      selectNode(clone.id);
+      autoSave();
+    }
+  }
+});
+
+// === INIT ===
+buildSidebar();
+if (!autoLoad()) {
+  // Set initial camera
+  cam.x = 4900; cam.y = 2900;
+}
+updateTransform();
+
+// Periodically update minimap
+setInterval(updateMinimap, 1000);
+</script>
+</body>
+</html>
