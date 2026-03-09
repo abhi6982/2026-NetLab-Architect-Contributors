@@ -664,6 +664,8 @@ textarea.fld-input { resize: vertical; min-height: 50px; }
     </div>
   </div>
   <div class="topbar-right">
+    <button class="btn" onclick="importNmap()" title="Import Nmap XML">📡 Nmap</button>
+    <div class="topbar-sep"></div>
     <button class="btn" onclick="openIPCalc()" title="IP/CIDR Calculator">🧮 IP Calc</button>
     <button class="btn" onclick="autoLayout()" title="Auto-arrange nodes">📐 Auto Layout</button>
     <button class="btn" onclick="undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
@@ -692,6 +694,7 @@ textarea.fld-input { resize: vertical; min-height: 50px; }
   <main class="canvas-area" id="canvasArea">
     <div class="canvas-grid" id="canvasGrid"></div>
     <div class="canvas-world" id="canvasWorld">
+      <div id="selectionBox" style="display:none; position:absolute; border:1px dashed var(--accent); background:var(--accent-dim); z-index:100; pointer-events:none;"></div>
       <svg class="conn-svg" id="connSvg" width="20000" height="20000"></svg>
     </div>
 
@@ -806,6 +809,7 @@ textarea.fld-input { resize: vertical; min-height: 50px; }
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- HIDDEN FILE INPUT -->
+<input type="file" id="nmapImport" accept=".xml" style="display:none" onchange="handleNmapImport(event)">
 <input type="file" id="fileImport" accept=".json,.netlab" style="display:none" onchange="handleImport(event)">
 
 <script>
@@ -1321,6 +1325,9 @@ let dragOff = {x:0,y:0};
 let connecting = null;
 let tempPath = null;
 let clipboard = null;
+let isSelecting = false;
+let selectStart = {x:0, y:0};
+let multiDragOffsets = [];
 let undoStack = [];
 let redoStack = [];
 
@@ -1490,13 +1497,25 @@ function renderNode(node) {
   el.addEventListener('mousedown', e => {
     if (e.target.classList.contains('port')) return;
     e.stopPropagation();
-    if (e.button === 2) return; // context menu handled separately
-    selectNode(node.id);
-    dragging = node;
+    if (e.button === 2) {
+      if (multiSelected.includes(node.id)) return;
+      selectNode(node.id);
+      return;
+    }
+
     const r = el.getBoundingClientRect();
-    const wr = area.getBoundingClientRect();
-    dragOff.x = e.clientX - r.left;
-    dragOff.y = e.clientY - r.top;
+    if (multiSelected.includes(node.id)) {
+      dragging = 'multi';
+      multiDragOffsets = multiSelected.map(id => {
+        const n = S.nodes.find(x => x.id === id);
+        return { id, offsetX: n.x - screenToWorld(e.clientX, e.clientY).x, offsetY: n.y - screenToWorld(e.clientX, e.clientY).y };
+      });
+    } else {
+      selectNode(node.id);
+      dragging = node;
+      dragOff.x = e.clientX - r.left;
+      dragOff.y = e.clientY - r.top;
+    }
   });
 
   el.addEventListener('contextmenu', e => {
@@ -1814,8 +1833,9 @@ function updateNodeField(id, key, value) {
   autoSave();
 }
 
-function deleteNode(id) {
-  pushUndo();
+function deleteNode(id, shouldPushUndo = true) {
+  if (shouldPushUndo) pushUndo();
+  multiSelected = multiSelected.filter(mid => mid !== id);
   // Clean up physical port references on connected nodes
   S.connections.filter(c => c.from === id || c.to === id).forEach(conn => {
     const otherId = conn.from === id ? conn.to : conn.from;
@@ -1840,17 +1860,43 @@ function deleteNode(id) {
 area.addEventListener('mousedown', e => {
   if (e.target === area || e.target.id === 'canvasGrid' || e.target.id === 'canvasWorld') {
     if (e.button === 0) {
-      // Start panning
-      isPanning = true;
-      panStart.x = e.clientX + cam.x;
-      panStart.y = e.clientY + cam.y;
-      area.classList.add('panning');
-      deselectAll();
+      if (e.shiftKey) {
+        isSelecting = true;
+        const pos = screenToWorld(e.clientX, e.clientY);
+        selectStart = { x: pos.x, y: pos.y };
+        const box = document.getElementById('selectionBox');
+        box.style.left = pos.x + 'px';
+        box.style.top = pos.y + 'px';
+        box.style.width = '0px';
+        box.style.height = '0px';
+        box.style.display = 'block';
+        if (!e.ctrlKey && !e.metaKey) deselectAll();
+      } else {
+        // Start panning
+        isPanning = true;
+        panStart.x = e.clientX + cam.x;
+        panStart.y = e.clientY + cam.y;
+        area.classList.add('panning');
+        deselectAll();
+      }
     }
   }
 });
 
 document.addEventListener('mousemove', e => {
+  if (isSelecting) {
+    const pos = screenToWorld(e.clientX, e.clientY);
+    const box = document.getElementById('selectionBox');
+    const x = Math.min(pos.x, selectStart.x);
+    const y = Math.min(pos.y, selectStart.y);
+    const w = Math.abs(pos.x - selectStart.x);
+    const h = Math.abs(pos.y - selectStart.y);
+    box.style.left = x + 'px';
+    box.style.top = y + 'px';
+    box.style.width = w + 'px';
+    box.style.height = h + 'px';
+  }
+
   if (isPanning) {
     cam.x = panStart.x - e.clientX;
     cam.y = panStart.y - e.clientY;
@@ -1858,12 +1904,26 @@ document.addEventListener('mousemove', e => {
   }
 
   if (dragging) {
-    const pos = screenToWorld(e.clientX - dragOff.x, e.clientY - dragOff.y);
-    dragging.x = Math.round(pos.x / 10) * 10;
-    dragging.y = Math.round(pos.y / 10) * 10;
-    const el = document.getElementById('n-' + dragging.id);
-    if (el) { el.style.left = dragging.x + 'px'; el.style.top = dragging.y + 'px'; }
-    renderConnections();
+    if (dragging === 'multi') {
+      const pos = screenToWorld(e.clientX, e.clientY);
+      multiDragOffsets.forEach(offset => {
+        const n = S.nodes.find(x => x.id === offset.id);
+        if (n) {
+          n.x = Math.round((pos.x + offset.offsetX) / 10) * 10;
+          n.y = Math.round((pos.y + offset.offsetY) / 10) * 10;
+          const el = document.getElementById('n-' + n.id);
+          if (el) { el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; }
+        }
+      });
+      renderConnections();
+    } else {
+      const pos = screenToWorld(e.clientX - dragOff.x, e.clientY - dragOff.y);
+      dragging.x = Math.round(pos.x / 10) * 10;
+      dragging.y = Math.round(pos.y / 10) * 10;
+      const el = document.getElementById('n-' + dragging.id);
+      if (el) { el.style.left = dragging.x + 'px'; el.style.top = dragging.y + 'px'; }
+      renderConnections();
+    }
   }
 
   if (connecting && tempPath) {
@@ -1882,6 +1942,33 @@ document.addEventListener('mousemove', e => {
 });
 
 document.addEventListener('mouseup', e => {
+  if (isSelecting) {
+    isSelecting = false;
+    const box = document.getElementById('selectionBox');
+    box.style.display = 'none';
+    const rect = {
+      x: parseFloat(box.style.left),
+      y: parseFloat(box.style.top),
+      w: parseFloat(box.style.width),
+      h: parseFloat(box.style.height)
+    };
+    S.nodes.forEach(n => {
+      const el = document.getElementById('n-' + n.id);
+      if (!el) return;
+      const nw = el.offsetWidth, nh = el.offsetHeight;
+      if (n.x < rect.x + rect.w && n.x + nw > rect.x &&
+          n.y < rect.y + rect.h && n.y + nh > rect.y) {
+        if (!multiSelected.includes(n.id)) {
+          multiSelected.push(n.id);
+          el.classList.add('multi-selected');
+        }
+      }
+    });
+    if (multiSelected.length > 0 && selected && !multiSelected.includes(selected)) {
+      multiSelected.push(selected);
+      document.getElementById('n-' + selected)?.classList.add('multi-selected');
+    }
+  }
   if (isPanning) { isPanning = false; area.classList.remove('panning'); }
   if (dragging) { dragging = null; autoSave(); }
   endConnect();
@@ -1987,22 +2074,58 @@ document.addEventListener('click', () => document.getElementById('ctxMenu').clas
 
 function ctxAction(action) {
   document.getElementById('ctxMenu').classList.remove('open');
-  if (!selected) return;
-  const node = S.nodes.find(n => n.id === selected);
-  if (!node) return;
 
-  if (action === 'delete') deleteNode(node.id);
-  if (action === 'duplicate') {
-    const clone = JSON.parse(JSON.stringify(node));
-    clone.id = S.nextId++;
-    clone.x += 30; clone.y += 30;
-    pushUndo();
-    S.nodes.push(clone);
-    renderNode(clone);
-    selectNode(clone.id);
-    autoSave();
+  if (action === 'delete') {
+    if (multiSelected.length > 0) {
+      pushUndo();
+      multiSelected.forEach(id => deleteNode(id, false));
+      multiSelected = [];
+    } else if (selected) {
+      deleteNode(selected);
+    }
   }
-  if (action === 'copy') clipboard = JSON.parse(JSON.stringify(node));
+
+  if (action === 'duplicate') {
+    if (multiSelected.length > 0) {
+      const newIds = [];
+      pushUndo();
+      multiSelected.forEach(id => {
+        const n = S.nodes.find(x => x.id === id);
+        if (n) {
+          const clone = JSON.parse(JSON.stringify(n));
+          clone.id = S.nextId++;
+          clone.x += 30; clone.y += 30;
+          S.nodes.push(clone);
+          renderNode(clone);
+          newIds.push(clone.id);
+        }
+      });
+      multiSelected = newIds;
+      newIds.forEach(id => document.getElementById('n-' + id)?.classList.add('multi-selected'));
+      autoSave();
+    } else if (selected) {
+      const node = S.nodes.find(n => n.id === selected);
+      if (node) {
+        const clone = JSON.parse(JSON.stringify(node));
+        clone.id = S.nextId++;
+        clone.x += 30; clone.y += 30;
+        pushUndo();
+        S.nodes.push(clone);
+        renderNode(clone);
+        selectNode(clone.id);
+        autoSave();
+      }
+    }
+  }
+
+  if (action === 'copy') {
+    if (multiSelected.length > 0) {
+      clipboard = multiSelected.map(id => JSON.parse(JSON.stringify(S.nodes.find(n => n.id === id)))).filter(n => n);
+    } else if (selected) {
+      const node = S.nodes.find(n => n.id === selected);
+      if (node) clipboard = JSON.parse(JSON.stringify(node));
+    }
+  }
 }
 
 // === UNDO / REDO ===
@@ -2684,7 +2807,13 @@ document.addEventListener('keydown', e => {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (selected) deleteNode(selected);
+    if (multiSelected.length > 0) {
+      pushUndo();
+      multiSelected.forEach(id => deleteNode(id, false));
+      multiSelected = [];
+    } else if (selected) {
+      deleteNode(selected);
+    }
   }
   if (e.key === 'Escape') {
     deselectAll(); endConnect(); closeIPCalc();
@@ -2696,24 +2825,117 @@ document.addEventListener('keydown', e => {
     if (e.key === 'z') { e.preventDefault(); undo(); }
     if (e.key === 'y') { e.preventDefault(); redo(); }
     if (e.key === 's') { e.preventDefault(); exportJSON(); }
-    if (e.key === 'd' && selected) {
+    if (e.key === 'd' && (selected || multiSelected.length > 0)) {
       e.preventDefault();
       ctxAction('duplicate');
     }
-    if (e.key === 'c' && selected) {
-      clipboard = JSON.parse(JSON.stringify(S.nodes.find(n => n.id === selected)));
+    if (e.key === 'c' && (selected || multiSelected.length > 0)) {
+      e.preventDefault();
+      ctxAction('copy');
     }
     if (e.key === 'v' && clipboard) {
       e.preventDefault();
-      const clone = { ...clipboard, id: S.nextId++, x: clipboard.x + 40, y: clipboard.y + 40 };
       pushUndo();
-      S.nodes.push(clone);
-      renderNode(clone);
-      selectNode(clone.id);
+      if (Array.isArray(clipboard)) {
+        const newIds = [];
+        clipboard.forEach(clipNode => {
+          const clone = JSON.parse(JSON.stringify(clipNode));
+          clone.id = S.nextId++;
+          clone.x += 40; clone.y += 40;
+          S.nodes.push(clone);
+          renderNode(clone);
+          newIds.push(clone.id);
+        });
+        multiSelected = newIds;
+        newIds.forEach(id => document.getElementById('n-' + id)?.classList.add('multi-selected'));
+      } else {
+        const clone = { ...clipboard, id: S.nextId++, x: clipboard.x + 40, y: clipboard.y + 40 };
+        S.nodes.push(clone);
+        renderNode(clone);
+        selectNode(clone.id);
+      }
       autoSave();
     }
   }
 });
+
+
+// === IMPORT FROM NMAP ===
+function importNmap() {
+  document.getElementById('nmapImport').click();
+}
+
+function handleNmapImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(ev.target.result, "text/xml");
+      const hosts = xmlDoc.getElementsByTagName("host");
+
+      let imported = 0;
+      let startX = 5100;
+      let startY = 3200;
+
+      const tmpl = COMPONENTS.flatMap(s => s.items).find(c => c.type === 'server');
+      if (!tmpl) { toast('Error: server component not found', 'error'); return; }
+
+      pushUndo();
+      Array.from(hosts).forEach(host => {
+        let ip = '';
+        let hostname = 'Unknown Device';
+
+        const addresses = host.getElementsByTagName('address');
+        for (let addr of addresses) {
+          if (addr.getAttribute('addrtype') === 'ipv4') {
+            ip = addr.getAttribute('addr');
+            break;
+          }
+        }
+
+        const hostnames = host.getElementsByTagName('hostname');
+        if (hostnames.length > 0) {
+          hostname = hostnames[0].getAttribute('name');
+        } else if (ip) {
+          hostname = ip;
+        }
+
+        if (ip || hostname !== 'Unknown Device') {
+          const node = {
+            id: S.nextId++,
+            type: 'server',
+            cat: 'compute',
+            x: startX + (imported % 5) * 180,
+            y: startY + Math.floor(imported / 5) * 120,
+            label: hostname,
+            fields: { ...tmpl.fields, ip: ip, hostname: hostname },
+            status: 'online',
+            notes: 'Imported from Nmap scan',
+            deviceModelId: null,
+            physicalPorts: null
+          };
+          S.nodes.push(node);
+          renderNode(node);
+          imported++;
+        }
+      });
+
+      if (imported > 0) {
+        toast(`Imported ${imported} nodes from Nmap`, 'success');
+        autoSave();
+      } else {
+        toast('No hosts found in XML', 'warning');
+      }
+    } catch(err) {
+      console.error(err);
+      toast('Failed to parse Nmap XML', 'error');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
 
 // === INIT ===
 buildSidebar();
