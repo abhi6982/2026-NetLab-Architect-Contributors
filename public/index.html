@@ -645,6 +645,9 @@ textarea.fld-input { resize: vertical; min-height: 50px; }
   .device-selector { width: 95vw; }
   .ds-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
+
+.node.ping-source { border-color: var(--accent2) !important; box-shadow: 0 0 0 2px var(--accent2-dim) !important; }
+.node.ping-dest { border-color: var(--danger) !important; box-shadow: 0 0 0 2px var(--danger-dim) !important; }
 </style>
 </head>
 <body>
@@ -664,6 +667,8 @@ textarea.fld-input { resize: vertical; min-height: 50px; }
     </div>
   </div>
   <div class="topbar-right">
+    <button class="btn btn-accent" id="pingToolBtn" onclick="togglePingTool()" title="Visual Ping Simulation">⚡ Ping Tool</button>
+    <div class="topbar-sep"></div>
     <button class="btn" onclick="importNmap()" title="Import Nmap XML">📡 Nmap</button>
     <div class="topbar-sep"></div>
     <button class="btn" onclick="openIPCalc()" title="IP/CIDR Calculator">🧮 IP Calc</button>
@@ -845,6 +850,7 @@ const ICONS = {
   n8n: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="24" r="6"/><circle cx="36" cy="14" r="6"/><circle cx="36" cy="34" r="6"/><line x1="18" y1="22" x2="30" y2="16"/><line x1="18" y1="26" x2="30" y2="32"/></svg>`,
   pihole: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="24" cy="24" r="16"/><circle cx="24" cy="24" r="8"/><circle cx="24" cy="24" r="2" fill="currentColor"/><line x1="24" y1="4" x2="24" y2="8"/><line x1="24" y1="40" x2="24" y2="44"/></svg>`,
   // Endpoints
+  custom_image: `<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" fill="none" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2" fill="none"/></svg>`,
   laptop: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="8" y="8" width="32" height="22" rx="2"/><path d="M4 34h40l-4 6H8l-4-6z"/></svg>`,
   desktop: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="6" width="36" height="24" rx="2"/><line x1="24" y1="30" x2="24" y2="36"/><line x1="14" y1="36" x2="34" y2="36"/></svg>`,
   phone: `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="14" y="4" width="20" height="40" rx="3"/><line x1="14" y1="10" x2="34" y2="10"/><line x1="14" y1="36" x2="34" y2="36"/><circle cx="24" cy="40" r="1.5"/></svg>`,
@@ -893,6 +899,7 @@ const COMPONENTS = [
     { type: 'pihole', label: 'Pi-hole', cat: 'service', fields: { ip:'', port:'80', blocked:'', clients:'' }},
   ]},
   { section: 'Endpoints', color: 'var(--blue)', items: [
+    { type: 'custom_image', label: 'Custom Image', cat: 'endpoint', fields: { name:'' }},
     { type: 'laptop', label: 'Laptop', cat: 'endpoint', fields: { ip:'', name:'', os:'', mac:'' }},
     { type: 'desktop', label: 'Desktop', cat: 'endpoint', fields: { ip:'', name:'', os:'', mac:'' }},
     { type: 'phone', label: 'Phone', cat: 'endpoint', fields: { ip:'', name:'', os:'', connection:'WiFi' }},
@@ -1481,7 +1488,7 @@ function renderNode(node) {
 
   el.innerHTML = `
     <div class="node-head">
-      <div class="node-ico" style="color:${color}">${ICONS[node.type] || ''}</div>
+      <div class="node-ico" style="color:${color}">${node.customImage ? `<img src="${node.customImage}" style="width:100%;height:100%;object-fit:contain;pointer-events:none;">` : (ICONS[node.type] || '')}</div>
       <span class="node-name">${node.label}</span>
       <div class="node-status ${node.status}"></div>
     </div>
@@ -1504,6 +1511,8 @@ function renderNode(node) {
     }
 
     const r = el.getBoundingClientRect();
+    if (handlePingSelection(node.id)) return;
+
     if (multiSelected.includes(node.id)) {
       dragging = 'multi';
       multiDragOffsets = multiSelected.map(id => {
@@ -1788,6 +1797,16 @@ function openPanel(node) {
       <div class="fld"><div class="fld-label">Y</div><input class="fld-input" type="number" value="${node.y}" onchange="updateNode(${node.id},'y',+this.value)"></div>
     </div>
   `;
+
+  if (node.type === 'custom_image') {
+    html += `
+      <div class="panel-divider"></div>
+      <div class="fld">
+        <div class="fld-label">Upload Image</div>
+        <input type="file" accept="image/*" class="fld-input" onchange="uploadCustomImage(${node.id}, this)">
+      </div>
+    `;
+  }
 
   // Change model button for device-model nodes
   if (node.deviceModelId) {
@@ -2935,6 +2954,187 @@ function handleNmapImport(e) {
   };
   reader.readAsText(file);
   e.target.value = '';
+}
+
+
+// === PING SIMULATION ===
+let pingMode = false;
+let pingSource = null;
+let pingDest = null;
+
+function togglePingTool() {
+  pingMode = !pingMode;
+  const btn = document.getElementById('pingToolBtn');
+  if (pingMode) {
+    btn.style.background = 'var(--accent)';
+    btn.style.color = '#fff';
+    toast('Ping Mode: Select SOURCE node', 'success');
+    deselectAll();
+  } else {
+    btn.style.background = '';
+    btn.style.color = '';
+    pingSource = null;
+    pingDest = null;
+    document.querySelectorAll('.node').forEach(el => el.classList.remove('ping-source', 'ping-dest'));
+    toast('Ping Mode Disabled', 'success');
+  }
+}
+
+function handlePingSelection(nodeId) {
+  if (!pingMode) return false;
+
+  if (!pingSource) {
+    pingSource = nodeId;
+    document.getElementById('n-' + nodeId).classList.add('ping-source');
+    toast('Source selected. Now select DESTINATION node', 'success');
+  } else if (!pingDest && nodeId !== pingSource) {
+    pingDest = nodeId;
+    document.getElementById('n-' + nodeId).classList.add('ping-dest');
+    runPingSimulation(pingSource, pingDest);
+
+    // Reset for next ping
+    setTimeout(() => {
+      document.querySelectorAll('.node').forEach(el => el.classList.remove('ping-source', 'ping-dest'));
+      pingSource = null;
+      pingDest = null;
+      toast('Ping Mode: Select SOURCE node', 'success');
+    }, 2000);
+  }
+  return true;
+}
+
+function runPingSimulation(startId, endId) {
+  // BFS to find shortest path
+  const adj = {};
+  S.nodes.forEach(n => adj[n.id] = []);
+  S.connections.forEach(c => {
+    adj[c.from].push({ to: c.to, sideFrom: c.fromSide, sideTo: c.toSide });
+    adj[c.to].push({ to: c.from, sideFrom: c.toSide, sideTo: c.fromSide });
+  });
+
+  const queue = [[startId]];
+  const visited = new Set([startId]);
+  let path = null;
+
+  while (queue.length > 0) {
+    const p = queue.shift();
+    const curr = p[p.length - 1];
+
+    if (curr === endId) {
+      path = p;
+      break;
+    }
+
+    for (let neighbor of adj[curr]) {
+      if (!visited.has(neighbor.to)) {
+        visited.add(neighbor.to);
+        queue.push([...p, neighbor.to]);
+      }
+    }
+  }
+
+  if (!path) {
+    toast('Ping Failed: No route to host', 'error');
+    return;
+  }
+
+  toast('Ping Success: Route found!', 'success');
+  animatePacket(path);
+}
+
+function animatePacket(pathNodes) {
+  if (pathNodes.length < 2) return;
+
+  const packet = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  packet.setAttribute('r', '5');
+  packet.setAttribute('fill', 'var(--accent2)');
+  packet.setAttribute('filter', 'drop-shadow(0 0 4px var(--accent2))');
+  svg.appendChild(packet);
+
+  // Create a continuous path for the packet to follow
+  let fullPathD = '';
+
+  for (let i = 0; i < pathNodes.length - 1; i++) {
+    const fromId = pathNodes[i];
+    const toId = pathNodes[i+1];
+
+    // Find connection to get sides
+    const conn = S.connections.find(c =>
+      (c.from === fromId && c.to === toId) ||
+      (c.from === toId && c.to === fromId)
+    );
+
+    if (!conn) continue;
+
+    const p1 = getPortPos(fromId, conn.from === fromId ? conn.fromSide : conn.toSide);
+    const p2 = getPortPos(toId, conn.from === toId ? conn.fromSide : conn.toSide);
+
+    const dx = Math.abs(p2.x - p1.x) * 0.4;
+    const dy = Math.abs(p2.y - p1.y) * 0.4;
+    let c1 = {...p1}, c2 = {...p2};
+
+    const fromSide = conn.from === fromId ? conn.fromSide : conn.toSide;
+    const toSide = conn.from === toId ? conn.fromSide : conn.toSide;
+
+    if (fromSide === 'right') c1.x += dx;
+    else if (fromSide === 'left') c1.x -= dx;
+    else if (fromSide === 'bottom') c1.y += dy;
+    else c1.y -= dy;
+
+    if (toSide === 'right') c2.x += dx;
+    else if (toSide === 'left') c2.x -= dx;
+    else if (toSide === 'bottom') c2.y += dy;
+    else c2.y -= dy;
+
+    if (i === 0) {
+      fullPathD += `M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`;
+    } else {
+      fullPathD += ` S${c2.x},${c2.y} ${p2.x},${p2.y}`;
+    }
+  }
+
+  const guidePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  guidePath.setAttribute('d', fullPathD);
+  guidePath.setAttribute('fill', 'none');
+
+  const len = guidePath.getTotalLength();
+  let startTime = null;
+  const duration = pathNodes.length * 400; // 400ms per hop
+
+  function step(timestamp) {
+    if (!startTime) startTime = timestamp;
+    const progress = (timestamp - startTime) / duration;
+
+    if (progress <= 1) {
+      const pt = guidePath.getPointAtLength(progress * len);
+      packet.setAttribute('cx', pt.x);
+      packet.setAttribute('cy', pt.y);
+      requestAnimationFrame(step);
+    } else {
+      packet.remove();
+    }
+  }
+
+  requestAnimationFrame(step);
+}
+
+
+function uploadCustomImage(id, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const node = S.nodes.find(n => n.id === id);
+    if (node) {
+      pushUndo();
+      node.customImage = e.target.result;
+      renderNode(node);
+      renderConnections();
+      autoSave();
+      openPanel(node); // refresh panel
+    }
+  };
+  reader.readAsDataURL(file);
 }
 
 // === INIT ===
